@@ -1,26 +1,30 @@
 CREATE TABLE Item (
-    name VARCHAR(255) PRIMARY KEY,
-    type ENUM('head', 'body','legs', 'feet', 'arms', 'accessory', 'face'),
-    image VARCHAR(255),
-    cost NUMBER(3)
+    name VARCHAR(255),
+    type ENUM('head', 'body','legs', 'feet', 'arms', 'accessory', 'face') NOT NULL,
+    image VARCHAR(255) NOT NULL,
+    cost NUMBER(3) NOT NULL,
+    PRIMARY KEY (name),
+    CHECK (cost > 0)
 );
 
 CREATE TABLE keep (
     item VARCHAR(255),
     avatar NUMBER,
-    is_wearing BOOLEAN,
+    is_wearing BOOLEAN NOT NULL,
     PRIMARY KEY (item, avatar),
     FOREIGN KEY (item) REFERENCES Item(name),
     FOREIGN KEY (avatar) REFERENCES Avatar(id)
 );
 
 CREATE TABLE Coop_challenge (
-    name VARCHAR(255) PRIMARY KEY,
-    start_date DATE,
-    end_date DATE,
+    name VARCHAR(255),
+    start_date TIMESTAMP NOT NULL,
+    end_date TIMESTAMP NOT NULL,
     status ENUM('active', 'inactive'),
-    total_steps NUMBER(10),
-    sum_steps NUMBER(10),
+    total_steps NUMBER(10) NOT NULL,
+    PRIMARY KEY (name),
+    CHECK (total_steps >= 0),
+    CHECK (end_date > start_date)
 );
 
 CREATE TABLE complete (
@@ -32,52 +36,37 @@ CREATE TABLE complete (
 );
 
 CREATE TABLE Avatar (
-    id NUMBER PRIMARY KEY,
-    FP NUMBER
+    id NUMBER,
+    FP NUMBER NOT NULL,
+    PRIMARY KEY (id),
+    CHECK (FP >= 0)
 );
 
 CREATE TABLE User (
-    id NUMBER PRIMARY KEY,
-    avatar NUMBER,
-    streak NUMBER,
-    FOREIGN KEY (avatar) REFERENCES Avatar(id)
+    id NUMBER,
+    avatar NUMBER NOT NULL,
+    streak NUMBER NOT NULL,
+    password VARCHAR(255) NOT NULL,
+    PRIMARY KEY (id),
+    FOREIGN KEY (avatar) REFERENCES Avatar(id),
+    CHECK (streak >= 0)
 );
 
 CREATE TABLE Steps (
     date DATE,
-    num_steps NUMBER(10),
-    is_reached BOOLEAN,
+    num_steps NUMBER(10) NOT NULL,
+    is_reached BOOLEAN NOT NULL,
     user NUMBER,
     PRIMARY KEY (date, user),
-    FOREIGN KEY (user) REFERENCES User(id)
-);
-
-CREATE TABLE Notification (
-    date TIMESTAMP,
-    status ENUM('read', 'unread'),
-    text VARCHAR(255),
-    type ENUM('session completed', 'reaction'),
-    icon VARCHAR(255),
-    u_sender NUMBER,
-    u_receiver NUMBER,
-    PRIMARY KEY (date, u_sender, u_receiver),
-    FOREIGN KEY (u_sender) REFERENCES User(id),
-    FOREIGN KEY (u_receiver) REFERENCES User(id)
-);
-
--- friends
-CREATE TABLE add (
-    user1 NUMBER,
-    user2 NUMBER,
-    PRIMARY KEY (user1, user2),
-    FOREIGN KEY (user1) REFERENCES User(id),
-    FOREIGN KEY (user2) REFERENCES User(id)
+    FOREIGN KEY (user) REFERENCES User(id),
+    CHECK (num_steps >= 0)
 );
 
 CREATE TABLE Memorial (
-    name VARCHAR(255) PRIMARY KEY,
-    description TEXT,
-    image VARCHAR(255)
+    name VARCHAR(255),
+    description TEXT NOT NULL,
+    image VARCHAR(255) NOT NULL,
+    PRIMARY KEY (name)
 );
 
 CREATE TABLE has (
@@ -90,64 +79,78 @@ CREATE TABLE has (
 
 
 CREATE TABLE Routine (
-    name VARCHAR(255) PRIMARY KEY,
+    name VARCHAR(255),
+    PRIMARY KEY (name)
     -- description TEXT
 );
 
 CREATE TABLE Session (
     date TIMESTAMP,
     user NUMBER,
-    duration NUMBER(5), -- in minutes
-    routine VARCHAR(255),
-    is_coop BOOLEAN,
+    duration NUMBER(5) NOT NULL, -- in minutes
+    routine VARCHAR(255) NOT NULL,
+    is_coop BOOLEAN NOT NULL,
     PRIMARY KEY (date, user),
-    FOREIGN KEY (user) REFERENCES User(id)
+    FOREIGN KEY (user) REFERENCES User(id),
+    CHECK (duration > 0)
 );
 
 CREATE TABLE Wellness_test (
     session TIMESTAMP,
     user NUMBER,
     type ENUM('initial', 'final'),
-    pain NUMBER(1), -- 1-5 scale
-    sleepiness NUMBER(1),
-    mood NUMBER(1), 
-    fatigue NUMBER(1),
+    pain NUMBER(1) NOT NULL, -- 1-5 scale
+    sleepiness NUMBER(1) NOT NULL,
+    mood NUMBER(1) NOT NULL, 
+    fatigue NUMBER(1) NOT NULL,
     PRIMARY KEY (session, user, type),
-    FOREIGN KEY (session, user) REFERENCES Session(date, user)
+    FOREIGN KEY (session, user) REFERENCES Session(date, user),
+    CONSTRAINT c_pain CHECK (pain >= 1 AND pain <= 5),
+    CONSTRAINT c_sleepiness CHECK (sleepiness >= 1 AND sleepiness <= 5),
+    CONSTRAINT c_mood CHECK (mood >= 1 AND mood <= 5),
+    CONSTRAINT c_fatigue CHECK (fatigue >= 1 AND fatigue <= 5
 );
 
 CREATE TABLE Exercise (
-    name VARCHAR(255) PRIMARY KEY,
-    description TEXT,
-    category ENUM('aerobic', 'strength', 'flexibility', 'balance'),
-    difficulty ENUM('easy', 'medium', 'hard'),
+    name VARCHAR(255),
+    description TEXT NOT NULL,
+    category ENUM('aerobic', 'strength', 'flexibility', 'balance') NOT NULL,
+    difficulty ENUM('easy', 'medium', 'hard') NOT NULL,
+    PRIMARY KEY (name)
 );
 
 CREATE TABLE plan (
     routine VARCHAR(255),
     exercise VARCHAR(255),
-    num_reps NUMBER(3),
-    num_series NUMBER(3),
-    duration NUMBER(5), -- in minutes
-    rest NUMBER(5), -- in seconds
+    num_reps NUMBER(3) NOT NULL,
+    num_series NUMBER(3) NOT NULL,
+    duration NUMBER(5) NOT NULL, -- in minutes
+    rest NUMBER(5) NOT NULL, -- in seconds
     PRIMARY KEY (routine, exercise),
     FOREIGN KEY (routine) REFERENCES Routine(name),
-    FOREIGN KEY (exercise) REFERENCES Exercise(name)
+    FOREIGN KEY (exercise) REFERENCES Exercise(name),
+    CHECK (num_reps > 0),
+    CHECK (num_series > 0),
+    CHECK (duration > 0),
+    CHECK (rest >= 0)
 );
 
 CREATE TABLE execute (
     session TIMESTAMP,
     exercise VARCHAR(255),
-    num_reps_done NUMBER(3),
-    time_initial TIMESTAMP,
-    time_final TIMESTAMP,
+    num_reps_done NUMBER(3) NOT NULL,
+    t_initial TIMESTAMP NOT NULL,
+    t_final TIMESTAMP NOT NULL,
     PRIMARY KEY (session, exercise),
     FOREIGN KEY (session) REFERENCES Session(date),
-    FOREIGN KEY (exercise) REFERENCES Exercise(name)
+    FOREIGN KEY (exercise) REFERENCES Exercise(name),
+    CHECK (num_reps_done >= 0),
+    CHECK (t_final > t_initial)
 );
 
 CREATE TABLE Muscle_group (
-    name VARCHAR(255) PRIMARY KEY
+    name VARCHAR(255),
+    PRIMARY KEY (name)
 );
 
 CREATE TABLE train (
@@ -159,7 +162,8 @@ CREATE TABLE train (
 );
 
 CREATE TABLE Audiovisual(
-    URL VARCHAR(255) PRIMARY KEY,
+    URL VARCHAR(255),
+    PRIMARY KEY (URL)
 );
 
 CREATE TABLE contains (
@@ -171,7 +175,8 @@ CREATE TABLE contains (
 );
 
 CREATE TABLE Measurement_parameter (
-    name VARCHAR(255) PRIMARY KEY,
+    name VARCHAR(255),
+    PRIMARY KEY (name)
 );
 
 CREATE TABLE use (
@@ -183,7 +188,8 @@ CREATE TABLE use (
 );
 
 CREATE TABLE Equipment (
-    name VARCHAR(255) PRIMARY KEY,
+    name VARCHAR(255),
+    PRIMARY KEY (name)
 );
 
 CREATE TABLE need (
