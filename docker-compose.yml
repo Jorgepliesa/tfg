@@ -1,0 +1,16 @@
+services:
+  db:
+    image: postgres:16 # La versión de la base de datos
+    container_name: health_game_db
+    restart: always
+    environment:
+      POSTGRES_USER: usuario_tfg
+      POSTGRES_PASSWORD: password_seguro
+      POSTGRES_DB: health_fitgame
+    ports:
+      - "5432:5432" # Conecta el puerto del contenedor con el de tu PC
+    volumes:
+      - postgres_data:/var/lib/postgresql/data # Para que los datos no se borren al apagar
+
+volumes:
+  postgres_data:
