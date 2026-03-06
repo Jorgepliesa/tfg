@@ -1,21 +1,31 @@
-import { Body, Controller, Post, UnauthorizedException } from "@nestjs/common";
+import { Module } from "@nestjs/common";
+import { JwtModule } from "@nestjs/jwt";
+import { PassportModule } from "@nestjs/passport";
+import { TypeOrmModule } from "@nestjs/typeorm";
+import { AuthController } from "./auth.controller";
 import { AuthService } from "./auth.service";
+import { UserAccount } from "../entities/UserAccount";
+import  { JwtStrategy } from "./jwt.strategy";
+import { ConfigModule, ConfigService } from "@nestjs/config";
 
-@Controller('auth')
-export class AuthController {
-  constructor(private authService: AuthService) {}
+@Module({
+  imports: [
+    TypeOrmModule.forFeature([UserAccount]),
+    PassportModule.register({ defaultStrategy: 'jwt'}),
+    JwtModule.registerAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({
+        secret: config.get<string>('JWT_SECRET'),
+        signOptions: { 
+          expiresIn: config.get<string>('JWT_EXPIRES_IN', '15m') as any,
+        },
+      }),
+    }),
+  ],
+  controllers: [AuthController],
+  providers: [AuthService, JwtStrategy],
+  exports: [AuthService, JwtStrategy, PassportModule],
+})
 
-  @Post('login')
-  async login(@Body() body: username: string, password: string) {
-    const user = await this.authService.validateUser(body.username, body.password);
-    if (!user) {
-      throw new UnauthorizedException('Invalid credentials');
-    }
-    return this.authService.login(user);
-  }
-
-  @Post('refresh')
-  async refresh(@Body() body: { refreshToken: string }) {
-    return this.authService.refreshToken(body.refreshToken);
-  }
-}
+export class AuthModule {}

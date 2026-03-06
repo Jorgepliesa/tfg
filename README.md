@@ -1,3 +1,4 @@
+
 Para levantar el docker: docker compose up -d (y tener iniciado docker desktop antes iniciado)
 
 Para borrar todo y empezar de cero: docker compose down -v. Resetea
@@ -12,6 +13,8 @@ npm run start:dev
 To run your project, navigate to the directory and run one of the following npm commands.
 
 en cd frontend
+
+npx expo start --tunnel (para hacer tunel seguro)
 
 - npm run android
 - npm run ios # you need to use macOS to build the iOS project - use the Expo app if you need to do iOS development without a Mac
@@ -115,3 +118,22 @@ backend/
 │   └── main.ts
 ├── .env                           # DATABASE_URL, JWT_SECRET, JWT_EXPIRES_IN
 └── package.json
+
+
+backend
+nombre-proyecto/
+├── src/
+│   ├── config/         # Configuración de la base de datos (TypeORM), variables de entorno
+│   ├── controllers/    # Lógica de las rutas (manejo de req/res)
+│   ├── entities/       # Modelos/Entidades de TypeORM (tablas de BD)
+│   ├── migrations/     # Archivos de migraciones de base de datos
+│   ├── middlewares/    # Middlewares de express (auth, validación)
+│   ├── routes/         # Definición de las rutas de la API
+│   ├── services/       # Lógica de negocio, interacción con el repositorio
+│   ├── utils/          # Funciones de ayuda o utilidades
+│   └── app.js          # Punto de entrada de la aplicación (Express setup)
+├── .env                # Variables de entorno (credenciales BD)
+├── .gitignore
+├── ormconfig.json      # Configuración específica de TypeORM
+├── package.json
+└── README.md

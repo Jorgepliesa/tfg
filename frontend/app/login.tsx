@@ -6,23 +6,34 @@ import { useState } from "react";
 import { ActivityIndicator, Alert, Pressable, TextInput, StyleSheet } from "react-native";
 
 export default function LoginScreen() {
-    const [username, setUsername] = useState('');
+    const [userId, setUserId] = useState('');
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
 
     const handleLogin = async () => {
-        if(!username.trim() || !password.trim()) {
+        if(!userId.trim() || !password.trim()) {
             Alert.alert('Error', 'Please complete all fields');
+            return;
+        }
+
+        const id = parseInt(userId.trim(), 10);
+        if (isNaN(id) || id < 0) {
+            Alert.alert('Error', 'The ID must be a valid number');
             return;
         }
 
         setLoading(true);
         try {
-            await authService.login(username, password);
-            // Redirigir a la pantalla principal
-            router.replace('/(tabs)'); // TODO: /home?
-        } catch (error) {
-            Alert.alert('Login Failed', 'Invalid username or password');
+            const response = await authService.login(id, password);
+            // Pequeña pausa para asegurar que los tokens se guardaron
+            await new Promise(resolve => setTimeout(resolve, 100));
+            router.replace('/welcome');
+        } catch (error: any) {
+            console.error('❌ Login error:', error);
+            Alert.alert(
+                'Login Failed', 
+                'Invalid ID or password'
+            );
         } finally {
             setLoading(false);
         }
@@ -36,10 +47,11 @@ export default function LoginScreen() {
 
             <TextInput
                 style={styles.input}
-                placeholder="Username"
+                placeholder="ID from user account"
                 placeholderTextColor="#999"
-                value={username}
-                onChangeText={setUsername}
+                value={userId}
+                onChangeText={setUserId}
+                keyboardType="numeric"
                 autoCapitalize="none"
                 autoCorrect={false}
             />

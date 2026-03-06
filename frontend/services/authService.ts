@@ -8,7 +8,6 @@ interface LoginResponse {
   refreshToken: string;
   user: {
     id: number;
-    username: string;
   };
 }
 
@@ -38,25 +37,48 @@ const storage = {
 };
 
 export const authService = {
-  async login(username: string, password: string): Promise<LoginResponse> {
-    const response = await fetch(`${API_URL}/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password }),
-    });
+  async login(id: number, password: string): Promise<LoginResponse> {
+    console.log(' Making request to:', `${API_URL}/auth/login`);
+    console.log(' Payload:', { id, password: '***' });
 
-    if (!response.ok) {
-      throw new Error('Login failed');
+    try {
+      const response = await fetch(`${API_URL}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, password }),
+      });
+
+      console.log(' Response status:', response.status);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ Error response:', errorText);
+        throw new Error(`Login failed: ${response.status} - ${errorText}`);
+      }
+
+      const data: LoginResponse = await response.json();
+      console.log('✅ Login response received:', { 
+        userId: data.user.id,
+        hasAccessToken: !!data.accessToken,
+        hasRefreshToken: !!data.refreshToken 
+      });
+
+      // Guardar tokens de forma segura
+      await storage.setItem('accessToken', data.accessToken);
+      await storage.setItem('refreshToken', data.refreshToken);
+      await storage.setItem('userId', data.user.id.toString());
+      
+      console.log(' Tokens saved successfully');
+      
+      // Verificar que se guardaron
+      const savedToken = await storage.getItem('accessToken');
+      console.log('✅ Token verification:', { tokenSaved: !!savedToken });
+
+      return data;
+    } catch (error: any) {
+      console.error('❌ Network/fetch error:', error);
+      throw new Error(error.message || 'Network error - check if backend is running');
     }
-
-    const data: LoginResponse = await response.json();
-
-    // Guardar tokens de forma segura
-    await storage.setItem('accessToken', data.accessToken);
-    await storage.setItem('refreshToken', data.refreshToken);
-    await storage.setItem('userId', data.user.id.toString());
-
-    return data;
   },
 
   async logout(): Promise<void> {
@@ -102,6 +124,8 @@ export const authService = {
 
   async isAuthenticated(): Promise<boolean> {
     const token = await this.getAccessToken();
-    return !!token;
+    const isAuth = !!token;
+    console.log(' isAuthenticated check:', { hasToken: isAuth, tokenPreview: token?.substring(0, 20) });
+    return isAuth;
   },
 };

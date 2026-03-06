@@ -1,6 +1,6 @@
 services:
   db:
-    image: postgres:16 # La versión de la base de datos
+    image: timescale/timescaledb:latest-pg16 # La versión de la base de datos
     container_name: health_game_db
     restart: always
     environment:

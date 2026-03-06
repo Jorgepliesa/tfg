@@ -1,15 +1,28 @@
+CREATE TYPE item_type AS ENUM ('head', 'body','legs', 'feet', 'arms', 'accessory', 'face');
+CREATE TYPE challenge_type AS ENUM ('active', 'inactive');
+CREATE TYPE wellness_type AS ENUM ('initial', 'final');
+CREATE TYPE category_type AS ENUM ('aerobic', 'strength', 'flexibility', 'balance');
+CREATE TYPE difficulty_type AS ENUM ('easy', 'medium', 'hard');
+
 CREATE TABLE Item (
     name VARCHAR(255),
-    type ENUM('head', 'body','legs', 'feet', 'arms', 'accessory', 'face') NOT NULL,
+    type item_type NOT NULL,
     image VARCHAR(255) NOT NULL,
-    cost NUMBER(3) NOT NULL,
+    cost INT NOT NULL,
     PRIMARY KEY (name),
-    CHECK (cost > 0)
+    CHECK (cost > 0 AND cost < 1000)
+);
+
+CREATE TABLE Avatar (
+    id INT,
+    FP INT NOT NULL,
+    PRIMARY KEY (id),
+    CHECK (FP >= 0)
 );
 
 CREATE TABLE keep (
     item VARCHAR(255),
-    avatar NUMBER,
+    avatar INT,
     is_wearing BOOLEAN NOT NULL,
     PRIMARY KEY (item, avatar),
     FOREIGN KEY (item) REFERENCES Item(name),
@@ -18,34 +31,27 @@ CREATE TABLE keep (
 
 CREATE TABLE Coop_challenge (
     name VARCHAR(255),
-    start_date TIMESTAMP NOT NULL,
-    end_date TIMESTAMP NOT NULL,
-    status ENUM('active', 'inactive'),
-    total_steps NUMBER(10) NOT NULL,
+    start_date TIMESTAMPTZ NOT NULL,
+    end_date TIMESTAMPTZ NOT NULL,
+    status challenge_type NOT NULL,
+    total_steps INT NOT NULL,
     PRIMARY KEY (name),
-    CHECK (total_steps >= 0),
+    CHECK (total_steps >= 0 AND total_steps < 1000000),
     CHECK (end_date > start_date)
 );
 
 CREATE TABLE complete (
     challenge VARCHAR(255),
-    avatar NUMBER,
+    avatar INT,
     PRIMARY KEY (challenge, avatar),
     FOREIGN KEY (challenge) REFERENCES Coop_challenge(name),
     FOREIGN KEY (avatar) REFERENCES Avatar(id)
 );
 
-CREATE TABLE Avatar (
-    id NUMBER,
-    FP NUMBER NOT NULL,
-    PRIMARY KEY (id),
-    CHECK (FP >= 0)
-);
-
-CREATE TABLE User (
-    id NUMBER,
-    avatar NUMBER NOT NULL,
-    streak NUMBER NOT NULL,
+CREATE TABLE User_Account (
+    id INT,
+    avatar INT NOT NULL,
+    streak INT NOT NULL,
     password VARCHAR(255) NOT NULL,
     PRIMARY KEY (id),
     FOREIGN KEY (avatar) REFERENCES Avatar(id),
@@ -53,13 +59,13 @@ CREATE TABLE User (
 );
 
 CREATE TABLE Steps (
-    date DATE,
-    num_steps NUMBER(10) NOT NULL,
+    date TIMESTAMPTZ,
+    num_steps INT NOT NULL,
     is_reached BOOLEAN NOT NULL,
-    user NUMBER,
-    PRIMARY KEY (date, user),
-    FOREIGN KEY (user) REFERENCES User(id),
-    CHECK (num_steps >= 0)
+    user_id INT,
+    PRIMARY KEY (date, user_id),
+    FOREIGN KEY (user_id) REFERENCES User_Account(id),
+    CHECK (num_steps >= 0 AND num_steps < 1000000)
 );
 
 CREATE TABLE Memorial (
@@ -71,10 +77,10 @@ CREATE TABLE Memorial (
 
 CREATE TABLE has (
     memorial VARCHAR(255),
-    user NUMBER,
-    PRIMARY KEY (memorial, user),
+    user_id INT,
+    PRIMARY KEY (memorial, user_id),
     FOREIGN KEY (memorial) REFERENCES Memorial(name),
-    FOREIGN KEY (user) REFERENCES User(id)
+    FOREIGN KEY (user_id) REFERENCES User_Account(id)
 );
 
 
@@ -85,66 +91,67 @@ CREATE TABLE Routine (
 );
 
 CREATE TABLE Session (
-    date TIMESTAMP,
-    user NUMBER,
-    duration NUMBER(5) NOT NULL, -- in minutes
+    date TIMESTAMPTZ,
+    user_id INT,
+    duration NUMERIC NOT NULL, -- in minutes
     routine VARCHAR(255) NOT NULL,
     is_coop BOOLEAN NOT NULL,
-    PRIMARY KEY (date, user),
-    FOREIGN KEY (user) REFERENCES User(id),
-    CHECK (duration > 0)
+    PRIMARY KEY (date, user_id),
+    FOREIGN KEY (user_id) REFERENCES User_Account(id),
+    CHECK (duration > 0 AND duration < 1440) -- no puede durar más de un día
 );
 
 CREATE TABLE Wellness_test (
-    session TIMESTAMP,
-    user NUMBER,
-    type ENUM('initial', 'final'),
-    pain NUMBER(1) NOT NULL, -- 1-5 scale
-    sleepiness NUMBER(1) NOT NULL,
-    mood NUMBER(1) NOT NULL, 
-    fatigue NUMBER(1) NOT NULL,
-    PRIMARY KEY (session, user, type),
-    FOREIGN KEY (session, user) REFERENCES Session(date, user),
+    session TIMESTAMPTZ,
+    user_id INT,
+    type wellness_type NOT NULL,
+    pain INT NOT NULL, -- 1-5 scale
+    sleepiness INT NOT NULL,
+    mood INT NOT NULL, 
+    fatigue INT NOT NULL,
+    PRIMARY KEY (session, user_id, type),
+    FOREIGN KEY (session, user_id) REFERENCES Session(date, user_id),
     CONSTRAINT c_pain CHECK (pain >= 1 AND pain <= 5),
     CONSTRAINT c_sleepiness CHECK (sleepiness >= 1 AND sleepiness <= 5),
     CONSTRAINT c_mood CHECK (mood >= 1 AND mood <= 5),
-    CONSTRAINT c_fatigue CHECK (fatigue >= 1 AND fatigue <= 5
+    CONSTRAINT c_fatigue CHECK (fatigue >= 1 AND fatigue <= 5)
 );
 
 CREATE TABLE Exercise (
     name VARCHAR(255),
     description TEXT NOT NULL,
-    category ENUM('aerobic', 'strength', 'flexibility', 'balance') NOT NULL,
-    difficulty ENUM('easy', 'medium', 'hard') NOT NULL,
+    category category_type NOT NULL,
+    difficulty difficulty_type NOT NULL,
     PRIMARY KEY (name)
 );
 
 CREATE TABLE plan (
     routine VARCHAR(255),
     exercise VARCHAR(255),
-    num_reps NUMBER(3) NOT NULL,
-    num_series NUMBER(3) NOT NULL,
-    duration NUMBER(5) NOT NULL, -- in minutes
-    rest NUMBER(5) NOT NULL, -- in seconds
+    num_reps INT NOT NULL,
+    num_series INT NOT NULL,
+    duration NUMERIC NOT NULL, -- in minutes
+    rest INT NOT NULL, -- in seconds
     PRIMARY KEY (routine, exercise),
     FOREIGN KEY (routine) REFERENCES Routine(name),
     FOREIGN KEY (exercise) REFERENCES Exercise(name),
-    CHECK (num_reps > 0),
-    CHECK (num_series > 0),
-    CHECK (duration > 0),
-    CHECK (rest >= 0)
+    CHECK (num_reps > 0 AND num_reps < 1000),
+    CHECK (num_series > 0 AND num_series < 100),
+    CHECK (duration > 0 AND duration < 1440),
+    CHECK (rest >= 0 AND rest < 3600)
 );
 
 CREATE TABLE execute (
-    session TIMESTAMP,
+    session TIMESTAMPTZ,
+    user_id INT,
     exercise VARCHAR(255),
-    num_reps_done NUMBER(3) NOT NULL,
-    t_initial TIMESTAMP NOT NULL,
-    t_final TIMESTAMP NOT NULL,
-    PRIMARY KEY (session, exercise),
-    FOREIGN KEY (session) REFERENCES Session(date),
+    num_reps_done INT NOT NULL,
+    t_initial TIMESTAMPTZ NOT NULL,
+    t_final TIMESTAMPTZ NOT NULL,
+    PRIMARY KEY (session, user_id, exercise),
+    FOREIGN KEY (session, user_id) REFERENCES Session(date, user_id),
     FOREIGN KEY (exercise) REFERENCES Exercise(name),
-    CHECK (num_reps_done >= 0),
+    CHECK (num_reps_done >= 0 AND num_reps_done < 1000),
     CHECK (t_final > t_initial)
 );
 
