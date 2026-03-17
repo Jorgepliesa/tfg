@@ -39,7 +39,7 @@ export class AuthService {
         const payload = { sub: user.id };
         const accessToken = this.jwtService.sign(payload);
         const refreshToken = this.jwtService.sign(payload, { 
-            expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d' as any,
+            expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '365d' as any,
         });
 
         return {
