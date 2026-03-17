@@ -8,7 +8,7 @@ export default function WelcomeScreen() {
     const [showParentalGate, setShowParentalGate] = useState(false);
 
     const handleEnter = () => {
-        router.replace('/(tabs)');
+        router.replace('/home');
     };
 
     return (

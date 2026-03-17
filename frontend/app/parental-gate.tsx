@@ -2,7 +2,7 @@ import { authService } from "@/services/authService";
 import { MaterialIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useState } from "react";
-import { Alert, View, StyleSheet, TextInput, Pressable, Text } from "react-native";
+import { Alert, View, StyleSheet, TextInput, Pressable, Text, Platform, Modal } from "react-native";
 
 interface ParentalGateModalProps {
     onClose: () => void;
@@ -11,6 +11,7 @@ interface ParentalGateModalProps {
 export function ParentalGateModal({ onClose }: ParentalGateModalProps) {
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
+    const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
     const handleVerifyPassword = async () => {
         if(!password.trim()) {
@@ -46,74 +47,122 @@ export function ParentalGateModal({ onClose }: ParentalGateModalProps) {
     };
 
     const handleLogout = async () => {
-        Alert.alert('Confirm Logout', 'Are you sure you want to log out?', 
-            [
-                { text: 'Cancel', style: 'cancel' },
-                { text: 'Logout', style: 'destructive', onPress: async () => {
-                    await authService.logout();
-                    router.replace('/login');
-                    },
-                },
-            ]
-        );
+        if(Platform.OS === 'web') {
+          setShowLogoutConfirm(true);
+        }
+        else{
+            Alert.alert('Confirm Logout', 'Are you sure you want to log out?', 
+                [
+                    { text: 'Cancel', style: 'cancel' },
+                    { text: 'Logout', style: 'destructive', onPress: confirmLogout },
+                ]
+            );
+        }
+    };
+
+    const confirmLogout = async () => {
+        await authService.logout();
+        onClose();
+        router.replace('/login');
     };
 
     return (
-        <View style={styles.overlay}>
-            <View style={styles.modal}>
-                {/* Boton cerrar */}
-                <Pressable style={styles.closeButton} onPress={onClose}>
-                    <MaterialIcons name="close" size={28} color="#6B5B95" />
-                </Pressable>
+      <View style={styles.overlay}>
+          <View style={styles.modal}>
+              {/* Boton cerrar */}
+              <Pressable style={styles.closeButton} onPress={onClose}>
+                  <MaterialIcons name="close" size={28} color="#6B5B95" />
+              </Pressable>
 
-                {/* Icono de candado */}
-                <MaterialIcons name="lock" size={48} color="#6B5B95" style={styles.lockIcon} />
-                <Text style={styles.modalTitle}>Parental Gate</Text>
-                <Text style={styles.modalSubtitle}>Please enter the parental password to access the dashboard.</Text>
+              {/* Icono de candado */}
+              <MaterialIcons name="lock" size={48} color="#6B5B95" style={styles.lockIcon} />
+              <Text style={styles.modalTitle}>Parental Gate</Text>
+              <Text style={styles.modalSubtitle}>Please enter the parental password to access the dashboard.</Text>
 
-                {/* Input de contraseña */}
-                <TextInput
-                    style={styles.passwordInput}
-                    placeholder="Parental Password"
-                    placeholderTextColor={'#999'}
-                    secureTextEntry
-                    value={password}
-                    onChangeText={setPassword}
-                    autoFocus
-                />
+              {/* Input de contraseña */}
+              <TextInput
+                  style={styles.passwordInput}
+                  placeholder="Parental Password"
+                  placeholderTextColor={'#999'}
+                  secureTextEntry
+                  value={password}
+                  onChangeText={setPassword}
+                  autoFocus
+              />
 
-                {/* Botón de verificación */}
-                <Pressable
-                    style={({ pressed }) => [
-                        styles.verifyButton,
-                        pressed && styles.buttonPressed,
-                    ]}
-                    onPress={handleVerifyPassword}
-                    disabled={loading}
-                >
-                    <Text style={styles.verifyButtonText}>{loading ? 'Verifying...' : 'Access'}</Text>
-                </Pressable>
+              {/* Botón de verificación */}
+              <Pressable
+                  style={({ pressed }) => [
+                      styles.verifyButton,
+                      pressed && styles.buttonPressed,
+                  ]}
+                  onPress={handleVerifyPassword}
+                  disabled={loading}
+              >
+                  <Text style={styles.verifyButtonText}>{loading ? 'Verifying...' : 'Access'}</Text>
+              </Pressable>
 
-                {/* Información de futuras características */}
-                <View style={styles.futureFeatures}>
-                    <Text style={styles.futureFeaturesTitle}>Future Features:</Text>
-                    <Text style={styles.featureText}>- View child's medical history</Text>
-                    <Text style={styles.featureText}>- Medical configuration </Text>
-                    <Text style={styles.featureText}>- View child's progress</Text>
-                </View>
+              {/* Información de futuras características */}
+              <View style={styles.futureFeatures}>
+                  <Text style={styles.futureFeaturesTitle}>Future Features:</Text>
+                  <Text style={styles.featureText}>- View child's medical history</Text>
+                  <Text style={styles.featureText}>- Medical configuration </Text>
+                  <Text style={styles.featureText}>- View child's progress</Text>
+              </View>
 
-                {/* Botón de cierre de sesión */}
-                <Pressable
-                    style={({ pressed }) => [
-                        styles.logoutButton,
-                        pressed && styles.buttonPressed,
-                    ]}
-                    onPress={handleLogout}
-                >
-                    <MaterialIcons name="logout" size={20} color="#FF6B6B" />
-                    <Text style={styles.logoutButtonText}>Logout</Text>
-                </Pressable>
+              {/* Botón de cierre de sesión */}
+              <Pressable
+                  style={({ pressed }) => [
+                      styles.logoutButton,
+                      pressed && styles.buttonPressed,
+                  ]}
+                  onPress={handleLogout}
+              >
+                  <MaterialIcons name="logout" size={20} color="#FF6B6B" />
+                  <Text style={styles.logoutButtonText}>Logout</Text>
+              </Pressable>
+          </View>
+
+          {/* Modal confirmación logout en web */}
+          <Modal 
+            visible={showLogoutConfirm}
+            transparent
+            animationType="fade"
+            onRequestClose={() => setShowLogoutConfirm(false)}
+          >
+            <View style={styles.confirmOverlay}>
+              <View style={styles.confirmModal}>
+                <Text style={styles.confirmTitle}>Confirm Logout</Text>
+                  <Text style={styles.confirmMessage}>Are you sure you want to log out?</Text>
+                  <View style={styles.confirmButtons}>
+                      <Pressable
+                          style={({ pressed }) => [
+                              styles.confirmButton,
+                              styles.cancelButton,
+                              pressed && styles.buttonPressed,
+                          ]}
+                          onPress={() => setShowLogoutConfirm(false)}
+                      >
+                          <Text style={styles.cancelButtonText}>Cancel</Text>
+                      </Pressable>
+
+                      <Pressable
+                          style={({ pressed }) => [
+                              styles.confirmButton,
+                              styles.confirmLogoutButton,
+                              pressed && styles.buttonPressed,
+                          ]}
+                          onPress={() => {
+                              setShowLogoutConfirm(false);
+                              confirmLogout();
+                          }}
+                      >
+                          <Text style={styles.confirmLogoutButtonText}>Logout</Text>
+                      </Pressable>
+                  </View>
+              </View>
             </View>
+          </Modal>
         </View>
     );
 }
@@ -218,5 +267,61 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     marginLeft: 8,
+  },
+// Estilos del modal de confirmación
+  confirmOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  confirmModal: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 24,
+    width: '100%',
+    maxWidth: 320,
+    elevation: 20,
+  },
+  confirmTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+  confirmMessage: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  confirmButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  confirmButton: {
+    flex: 1,
+    borderRadius: 8,
+    padding: 14,
+    alignItems: 'center',
+    minHeight: 48,
+  },
+  cancelButton: {
+    backgroundColor: '#E0E0E0',
+  },
+  cancelButtonText: {
+    color: '#666',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  confirmLogoutButton: {
+    backgroundColor: '#FF6B6B',
+  },
+  confirmLogoutButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

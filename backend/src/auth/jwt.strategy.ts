@@ -26,10 +26,10 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
         if(!user) throw new UnauthorizedException('User not found');
 
+        // Objeto que Passport asignara req.user
         return {
             id: user.id,
-            avatarId: user.avatarEntity.id, // no se si me hace falta
-            avatarEntity: user.avatarEntity,
+            avatar: user.avatar, // Disponible en req.user.avatar
         };
     }
 }

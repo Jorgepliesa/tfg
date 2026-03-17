@@ -30,9 +30,9 @@ async function bootstrap() {
     type: 'postgres',
     host: process.env.DB_HOST || 'localhost',
     port: parseInt(process.env.DB_PORT || '5432', 10),
-    username: process.env.DB_USERNAME || 'usuario_tfg',
-    password: process.env.DB_PASSWORD || 'password_seguro',
-    database: process.env.DB_NAME || 'health_fitgame',
+    username: process.env.DB_USERNAME || 'admin_821011',
+    password: process.env.DB_PASSWORD || '0000',
+    database: process.env.DB_NAME || 'fitgame',
     entities: [
       UserAccount,
       Avatar,
@@ -62,6 +62,7 @@ async function bootstrap() {
 
     const userRepository = dataSource.getRepository(UserAccount);
     const avatarRepository = dataSource.getRepository(Avatar);
+    const stepsRepository = dataSource.getRepository(Steps);
 
     // Hash de la contraseña
     const hashedPassword = await bcrypt.hash('1234', 10);
@@ -69,7 +70,7 @@ async function bootstrap() {
     // Verificar si el usuario ya existe
     const existingUser = await userRepository.findOne({ 
       where: { id: 821011 },
-      relations: ['avatarEntity']
+      relations: ['avatarEntity', 'steps'] // Cargar relaciones para eliminar dependencias
     });
     
     if (existingUser) {
@@ -84,8 +85,8 @@ async function bootstrap() {
 
     // Crear avatar primero (solo con FP)
     const avatar = avatarRepository.create({
-      fp: 100,
       id: 1,
+      fp: 100,
     });
 
     const savedAvatar = await avatarRepository.save(avatar);
@@ -99,6 +100,17 @@ async function bootstrap() {
     });
 
     await userRepository.save(user);
+
+    // Crear registro de pasos para el usuario
+    const steps = stepsRepository.create({
+      userId: user.id,
+      date: new Date().toISOString().split('T')[0], // Fecha actual en formato YYYY-MM-DD
+      numSteps: 5000, // Pasos iniciales
+    });
+
+    await stepsRepository.save(steps);
+
+    console.log('✅ Usuario creado exitosamente con ID 821011');
 
   } catch (error) {
     console.error('❌ Error al crear usuario:', error);

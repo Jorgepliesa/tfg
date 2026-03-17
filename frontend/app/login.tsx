@@ -105,6 +105,8 @@ const styles = StyleSheet.create({
         fontSize: 16,
         borderWidth: 1,
         borderColor: '#ddd',
+        width: 280,
+        maxWidth: '90%',
     },
     button: {
         backgroundColor: '#007AFF',

@@ -1,3 +1,5 @@
+sudo systemctl enable --now docker
+
 
 Para levantar el docker: docker compose up -d (y tener iniciado docker desktop antes iniciado)
 

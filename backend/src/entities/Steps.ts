@@ -36,6 +36,6 @@ export class Steps {
   isReached: boolean;
 
   @ManyToOne(() => UserAccount, (userAccount) => userAccount.steps)
-  @JoinColumn([{ name: "user_account", referencedColumnName: "id" }])
+  @JoinColumn([{ name: "user_id", referencedColumnName: "id" }])
   userAccount: UserAccount;
 }

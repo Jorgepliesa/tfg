@@ -4,6 +4,8 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
+import { AvatarModule } from './modules/avatar.module';
+import { UserModule } from './modules/user.module';
 
 // Importar todas las entidades
 import { UserAccount } from './entities/UserAccount';
@@ -39,9 +41,9 @@ import { MeasurementParameter } from './entities/MeasurementParameter';
       type: 'postgres',
       host: process.env.DB_HOST || 'localhost',
       port: parseInt(process.env.DB_PORT || '5432', 10),
-      username: process.env.DB_USERNAME || 'usuario_tfg',
-      password: process.env.DB_PASSWORD || 'password_seguro',
-      database: process.env.DB_NAME || 'health_fitgame',
+      username: process.env.DB_USERNAME || 'admin_821011',
+      password: process.env.DB_PASSWORD || '0000',
+      database: process.env.DB_NAME || 'fitgame',
       entities: [
         UserAccount,
         Avatar,
@@ -69,6 +71,8 @@ import { MeasurementParameter } from './entities/MeasurementParameter';
     
     // Módulos de funcionalidad
     AuthModule,
+    AvatarModule,
+    UserModule,
   ],
   controllers: [AppController],
   providers: [AppService],
