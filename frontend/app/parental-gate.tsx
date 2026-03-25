@@ -31,14 +31,16 @@ export function ParentalGateModal({ onClose }: ParentalGateModalProps) {
                 body: JSON.stringify({ password }),
             });
 
-            if(!response.ok) {
+            const data = await response.json();
+
+            if(!data.valid) {
                 Alert.alert('Error', 'Wrong password. Please try again.');
                 return;
             }
 
             // Contraseña correcta -> Ir a panel de supervisión
             onClose();
-            router.push('/parental-gate');
+            router.push('/parental-dashboard');
         } catch (error) {
             Alert.alert('Error', 'An error occurred while verifying the password. Please try again.');
         } finally {

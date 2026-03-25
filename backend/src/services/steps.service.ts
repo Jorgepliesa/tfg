@@ -28,9 +28,14 @@ export class StepsService {
 
     // Obtener pasos de hoy
     async getTodaySteps(id: number): Promise<number> {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0); // Establecer la hora a medianoche
-        return await this.getNumSteps(id,today);
+        try {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0); // Establecer la hora a medianoche
+            return await this.getNumSteps(id, today);
+        } catch (error) {
+            // Si no hay pasos hoy (NotFoundException), retornar 0 en lugar de error
+            return 0;
+        }
     }
 
     // Actualizar o crear pasos del dia

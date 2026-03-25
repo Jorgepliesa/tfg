@@ -19,6 +19,19 @@ const api = axios.create({
   timeout: 10000,
 });
 
+// Flag para evitar múltiples intentos de refresh simultáneos
+let isRefreshing = false;
+let refreshSubscribers: Array<(token: string) => void> = [];
+
+const onRefreshed = (token: string) => {
+  refreshSubscribers.forEach((callback) => callback(token));
+  refreshSubscribers = [];
+};
+
+const addRefreshSubscriber = (callback: (token: string) => void) => {
+  refreshSubscribers.push(callback);
+};
+
 // Interceptor para agregar token a todas las requests
 api.interceptors.request.use(async (config) => {
   try {
@@ -33,23 +46,47 @@ api.interceptors.request.use(async (config) => {
   return config;
 });
 
-// Interceptor para manejar 401 (token expirado)
+// Interceptor para manejar 401 (token expirado) y errores de red
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
 
+    // Manejo de errores de red
+    if (!error.response) {
+      console.error('❌ Network error (sin respuesta del servidor):', error.message);
+      console.log('Posibles causas: Backend no está corriendo, sin conexión a internet, CORS error');
+      return Promise.reject(new Error('Network error: No response from server'));
+    }
+
+    // Manejo de token expirado (401)
     if (error.response?.status === 401 && !originalRequest._retry) {
+      if (isRefreshing) {
+        // Si ya hay un refresh en progreso, esperar a que termine
+        return new Promise((resolve) => {
+          addRefreshSubscriber((token: string) => {
+            originalRequest.headers.Authorization = `Bearer ${token}`;
+            resolve(api(originalRequest));
+          });
+        });
+      }
+
       originalRequest._retry = true;
+      isRefreshing = true;
+      console.log('⚠️ Access token expirado, intentando refresh...');
 
       try {
         const newToken = await authService.refreshAccessToken();
         originalRequest.headers.Authorization = `Bearer ${newToken}`;
+        console.log('✅ Token refrescado, reintentando request...');
+        isRefreshing = false;
+        onRefreshed(newToken);
         return api(originalRequest);
       } catch (refreshError) {
-        console.error('❌ Token refresh failed, logging out');
+        console.error('❌ Token refresh failed, logging out:', refreshError);
+        isRefreshing = false;
         await authService.logout();
-        // Redirigir a login si es necesario
+        // Redirigir a login si es necesario (esto se maneja en _layout.tsx)
         return Promise.reject(refreshError);
       }
     }

@@ -102,24 +102,31 @@ export const authService = {
       throw new Error('No refresh token available');
     }
 
-    const response = await fetch(`${API_URL}/auth/refresh`, {
-      method: 'POST',
-      headers: { 
-        'Content-Type': 'application/json', 
-        'Authorization': `Bearer ${refreshToken}` 
-      },
-    });
+    try {
+      const response = await fetch(`${API_URL}/auth/refresh`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ refreshToken }),
+      });
 
-    if (!response.ok) {
-        // Refresh token invalido -> forzar re-login
-        await this.logout();
-        throw new Error('Failed to refresh access token');
+      if (!response.ok) {
+          // Refresh token inválido -> forzar re-login
+          await this.logout();
+          throw new Error('Failed to refresh access token');
+      }
+
+      const data = await response.json();
+      await storage.setItem('accessToken', data.accessToken);
+      console.log('✅ Access token refreshed successfully');
+
+      return data.accessToken;
+    } catch (error: any) {
+      console.error('❌ Error refreshing token:', error);
+      await this.logout();
+      throw new Error(error.message || 'Token refresh failed');
     }
-
-    const data = await response.json();
-    await storage.setItem('accessToken', data.accessToken);
-
-    return data.accessToken;
   },
 
   async isAuthenticated(): Promise<boolean> {

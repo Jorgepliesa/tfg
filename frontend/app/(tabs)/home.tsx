@@ -1,11 +1,13 @@
 import { avatarService } from "@/services/avatarService";
 import { StepsService }  from "@/services/stepsService"
 import { UserService } from "@/services/userService";
-import { useFocusEffect } from "expo-router";
+import MaterialIcons from "@expo/vector-icons/build/MaterialIcons";
+import { router, useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
-import { ImageBackground, Text, View, StyleSheet, ActivityIndicator, Platform, Dimensions } from "react-native";
+import { ImageBackground, Text, View, StyleSheet, ActivityIndicator, Platform, Dimensions, Image, Pressable } from "react-native";
 
 export default function Home() {
+  const router = useRouter();
   const [fp, setFp] = useState<number>(0);
   const [numSteps, setSteps] = useState<number>(0);
   const [loading, setLoading] = useState(true);
@@ -28,14 +30,17 @@ export default function Home() {
       ]);
 
       setFp(fitnessPoints);
-      setSteps(numSteps); // Descomentar cuando esté implementado
+      setSteps(numSteps);
     } catch (error) {
       console.error('Error loading home data:', error);
-      setFp(0); // Valor por defecto en caso de error
-      setSteps(0);
     } finally {
       setLoading(false);
     }
+  };
+
+  // Funciones de navegacion (Entrenar, tienda e inventario con scroll derecha)
+  const goToExercises = () => {
+    router.push('/(tabs)/routines');
   };
 
   // Mostrar spinner de pantalla completa mientras se cargan los datos
@@ -67,6 +72,24 @@ export default function Home() {
             Pasos 👣: {numSteps}
           </Text>
         </View>
+        {/* Avatar */}
+        <View style={styles.avatarContainer}>
+          <Image
+            source={require('@/assets/images/Avatar.png')}
+            style={styles.avatarImage}
+          />
+        </View>
+            {/* Botón de entrada */}
+            <Pressable
+                style={({ pressed }) => [
+                    styles.enterButton,
+                    pressed && styles.buttonPressed,
+                ]}
+                onPress={goToExercises}
+            >
+                <Text style={styles.enterButtonText}>Entrenar!</Text>
+                <MaterialIcons name="fitness-center" size={28} color="#fff" />
+            </Pressable>
       </ImageBackground>
     </View>
   );
@@ -94,6 +117,21 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
+
+  avatarContainer: {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    transform: [{ translateX: -80 }, { translateY: -80 }], // Centrar (80 es la mitad de 160)
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  avatarImage: {
+    width: 320,
+    height: 320,
+    resizeMode: 'contain',
+  },
+  
   pointsContainer: {
     position: 'absolute',
     top: 60,
@@ -145,5 +183,33 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     color: '#6B5B95',
+  },
+  enterButton: {
+    position: 'absolute',
+    bottom: 40,
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#e7bf3dff',
+    paddingVertical: 20,
+    paddingHorizontal: 48,
+    borderRadius: 30,
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    minWidth: 200,
+    minHeight: 60,
+  },
+  enterButtonText: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#fff',
+    marginRight: 12,
+  },
+  buttonPressed: {
+    opacity: 0.7,
+    transform: [{ scale: 0.95 }],
   },
 });

@@ -8,7 +8,7 @@ export default function WelcomeScreen() {
     const [showParentalGate, setShowParentalGate] = useState(false);
 
     const handleEnter = () => {
-        router.replace('/home');
+        router.replace('/(tabs)/home');
     };
 
     return (
@@ -104,38 +104,38 @@ const styles = StyleSheet.create({
             shadowRadius: 4,
             minWidth: 200,
             minHeight: 60,
-        },
-        enterButtonText: {
-            fontSize: 28,
-            fontWeight: 'bold',
-            color: '#fff',
-            marginRight: 12,
-        },
-        buttonPressed: {
-            opacity: 0.7,
-            transform: [{ scale: 0.95 }],
-        },
-        parentalButton: {
-            position: 'absolute',
-            bottom: 40,
-            left: 30,
-            alignItems: 'center',
-            backgroundColor: '#FFE5B4',
-            paddingVertical: 12,
-            paddingHorizontal: 16,
-            borderRadius: 20,
-            elevation: 4,
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: 2 },
-            shadowOpacity: 0.2,
-            shadowRadius: 3,
-            minWidth: 100,
-            minHeight: 60,
-        },
-        parentalButtonText: {
-            fontSize: 14,
-            fontWeight: '600',
-            color: '#6B5B95',
-            marginTop: 4,
-        },
-        });
+    },
+    enterButtonText: {
+        fontSize: 28,
+        fontWeight: 'bold',
+        color: '#fff',
+        marginRight: 12,
+    },
+    buttonPressed: {
+        opacity: 0.7,
+        transform: [{ scale: 0.95 }],
+    },
+    parentalButton: {
+        position: 'absolute',
+        bottom: 40,
+        left: 30,
+        alignItems: 'center',
+        backgroundColor: '#FFE5B4',
+        paddingVertical: 12,
+        paddingHorizontal: 16,
+        borderRadius: 20,
+        elevation: 4,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 3,
+        minWidth: 100,
+        minHeight: 60,
+    },
+    parentalButtonText: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: '#6B5B95',
+        marginTop: 4,
+    },
+});

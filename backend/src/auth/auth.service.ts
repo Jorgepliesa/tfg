@@ -37,10 +37,12 @@ export class AuthService {
         await this.userRepository.save(user);
 
         const payload = { sub: user.id };
-        const accessToken = this.jwtService.sign(payload);
-        const refreshToken = this.jwtService.sign(payload, { 
-            expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '365d' as any,
+        // accessToken: 24 horas (uso mientras la app está abierta)
+        const accessToken = this.jwtService.sign(payload, { 
+            expiresIn: '24h' 
         });
+        // refreshToken: SIN EXPIRACIÓN (indefinido, como Instagram/WhatsApp)
+        const refreshToken = this.jwtService.sign(payload);
 
         return {
             accessToken,
