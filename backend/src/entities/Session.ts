@@ -15,7 +15,7 @@ import { ApiProperty } from "@nestjs/swagger";
 import { Routine } from "./Routine";
 
 @Index("session_date_idx", ["date"], {})
-@Index("session_pkey", ["date", "userAccount"], { unique: true })
+@Index("session_pkey", ["date", "userId"], { unique: true })
 @Entity("session", { schema: "public" })
 @Check('"duration" > 0 AND "duration" <= 1440')
 export class Session {
@@ -30,8 +30,8 @@ export class Session {
     example: 1,
     description: "The unique identifier of the user account",
   })
-  @PrimaryColumn({ type: "integer", name: "user_account" })
-  userAccount: number;
+  @PrimaryColumn({ type: "integer", name: "user_id" })
+  userId: number;
 
   @ApiProperty({
     example: 30,
@@ -55,8 +55,8 @@ export class Session {
   isCoop: boolean;
 
   @ManyToOne(() => UserAccount, (userAccount) => userAccount.sessions)
-  @JoinColumn([{ name: "user_account", referencedColumnName: "id" }])
-  userAccountEntity: UserAccount;
+  @JoinColumn([{ name: "user_id", referencedColumnName: "id" }])
+  userAccount: UserAccount;
 
   @OneToMany(() => WellnessTest, (wellnessTest) => wellnessTest.session)
   wellnessTests: WellnessTest[];

@@ -6,6 +6,8 @@ import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
 import { AvatarModule } from './modules/avatar.module';
 import { UserModule } from './modules/user.module';
+import { RoutineModule } from './modules/routine.module';
+import { ExecuteModule } from './modules/execute.module';
 
 // Importar todas las entidades
 import { UserAccount } from './entities/UserAccount';
@@ -27,6 +29,8 @@ import { Audiovisual } from './entities/Audiovisual';
 import { MuscleGroup } from './entities/MuscleGroup';
 import { Equipment } from './entities/Equipment';
 import { MeasurementParameter } from './entities/MeasurementParameter';
+import { WellnessTestModule } from './modules/wellnessTest.module';
+import { SessionModule } from './modules/session.module';
 
 @Module({
   imports: [
@@ -65,7 +69,7 @@ import { MeasurementParameter } from './entities/MeasurementParameter';
         Equipment,
         MeasurementParameter,
       ],
-      synchronize: false, // ¡IMPORTANTE! false en producción para no perder datos
+      synchronize: false, // ¡IMPORTANTE! false en producción para no perder datos TODO
       logging: process.env.NODE_ENV === 'development',
     }),
     
@@ -73,6 +77,10 @@ import { MeasurementParameter } from './entities/MeasurementParameter';
     AuthModule,
     AvatarModule,
     UserModule,
+    WellnessTestModule,
+    SessionModule,
+    RoutineModule,
+    ExecuteModule,
   ],
   controllers: [AppController],
   providers: [AppService],

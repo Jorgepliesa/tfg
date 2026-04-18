@@ -74,18 +74,23 @@ async function bootstrap() {
     });
     
     if (existingUser) {
+      // Eliminar los pasos primero (porque Steps DEPENDE de UserAccount)
+      if (existingUser.steps && existingUser.steps.length > 0) {
+        await stepsRepository.remove(existingUser.steps);
+      }
+
+      // Eliminar el usuario ANTES de eliminar el avatar
+      // porque UserAccount TIENE la Foreign Key "avatar" que DEPENDE de la tabla Avatar.
+      await userRepository.remove(existingUser);
       
-      // Eliminar avatar asociado primero
+      // Finalmente eliminar el avatar de forma segura
       if (existingUser.avatarEntity) {
         await avatarRepository.remove(existingUser.avatarEntity);
       }
-      
-      await userRepository.remove(existingUser);
     }
 
     // Crear avatar primero (solo con FP)
     const avatar = avatarRepository.create({
-      id: 1,
       fp: 100,
     });
 
@@ -106,6 +111,7 @@ async function bootstrap() {
       userId: user.id,
       date: new Date().toISOString().split('T')[0], // Fecha actual en formato YYYY-MM-DD
       numSteps: 5000, // Pasos iniciales
+      isReached: false, // Valor necesario porque la BBDD aplica NOT NULL
     });
 
     await stepsRepository.save(steps);

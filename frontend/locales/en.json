@@ -1,0 +1,26 @@
+{
+  "routines": {
+    "header_title": "Routines",
+    "main_title": "What do you want to do today?",
+    "error_title": "Error",
+    "error_message": "Could not load the recommended routine",
+    "categories": {
+      "cardio": {
+        "title": "Cardio",
+        "description": "Exercises for your heart"
+      },
+      "strength": {
+        "title": "Strength",
+        "description": "Strengthen your muscles"
+      },
+      "flexibility": {
+        "title": "Flexibility",
+        "description": "Improve your range of motion"
+      },
+      "balance": {
+        "title": "Balance",
+        "description": "Improve your stability and coordination"
+      }
+    }
+  }
+}

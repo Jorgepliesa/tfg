@@ -8,6 +8,9 @@ Para borrar todo y empezar de cero: docker compose down -v. Resetea
 Para pararlo simplemente: docker compose down y sudo systemctl stop docker
 (aunque este ultimo no hace falta)
 
+Si deja de funcionar porque ha cambiado la ip, acordarse de que hay 
+que cambiarla en el .env
+
 EN OTRA TERMINAL
 en cd backend
 npm run start:dev

@@ -3,7 +3,7 @@ import { Exercise } from "./Exercise";
 import { Session } from "./Session";
 import { ApiProperty } from "@nestjs/swagger";
 
-@Index("execute_pkey", ["exercise", "session", "userAccount"], { unique: true })
+@Index("execute_pkey", ["exercise", "session", "userId"], { unique: true })
 @Entity("execute", { schema: "public" })
 @Check(`"num_reps_done" >= 0 AND "num_reps_done" < 1000`)
 @Check(`"t_final" > "t_initial"`)
@@ -21,8 +21,8 @@ export class Execute {
     example: 1,
     description: "The unique identifier of the user account who performed the exercise",
   }) 
-  @PrimaryColumn({type: "integer", name: "user_account" })
-  userAccount: number;
+  @PrimaryColumn({type: "integer", name: "user_id" })
+  userId: number;
 
   @ApiProperty({
     example: "Push-ups",
@@ -63,7 +63,7 @@ export class Execute {
   @ManyToOne(() => Session, (session) => session.executes)
   @JoinColumn([
     { name: "session", referencedColumnName: "date" },
-    { name: "user_account", referencedColumnName: "userAccount" },
+    { name: "user_id", referencedColumnName: "userId" },
   ])
   sessionEntity: Session;
 }

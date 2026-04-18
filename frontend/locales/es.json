@@ -1,0 +1,26 @@
+{
+  "routines": {
+    "header_title": "Rutinas",
+    "main_title": "¿Qué te apetece hacer hoy?",
+    "error_title": "Error",
+    "error_message": "No se pudo cargar la rutina recomendada",
+    "categories": {
+      "cardio": {
+        "title": "Cardio",
+        "description": "Ejercicios para el corazón"
+      },
+      "strength": {
+        "title": "Fuerza",
+        "description": "Fortalece tus músculos"
+      },
+      "flexibility": {
+        "title": "Flexibilidad",
+        "description": "Mejora tu rango de movimiento"
+      },
+      "balance": {
+        "title": "Equilibrio",
+        "description": "Mejora tu estabilidad y coordinación"
+      }
+    }
+  }
+}

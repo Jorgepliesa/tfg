@@ -1,14 +1,43 @@
 import { useRouter } from 'expo-router';
-import { View, Text, StyleSheet, Pressable, ScrollView, Platform } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ScrollView, Platform, ActivityIndicator, Alert } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useState } from 'react';
+import { useTranslation } from 'react-i18next'; // <-- Importamos para la traducción
+import { routineService } from '../../services/routineService';
+import { useSession } from '../../context/SessionContext';
 
 export default function Routines() {
     const router = useRouter();
+    const { t } = useTranslation(); // <-- Inicializamos el hook
+    const { initSession } = useSession();
+    const [loading, setLoading] = useState(false);
 
-    const handleCardPress = (category: string) => {
-        router.push(`/(tabs)/routines/wellnessTest`);
+    const handleCardPress = async (category: string) => {
+        try {
+            setLoading(true);
+            const suggestedRoutine = await routineService.suggestRoutine(category);
+            const routineExercises = await routineService.getRoutineDetails(suggestedRoutine.routineName);
+
+            initSession(category, suggestedRoutine.routineName, routineExercises);
+            router.push('/(tabs)/routines/wellnessTest');
+        } catch (error) {
+            console.error('Error al sugerir rutina:', error);
+            Alert.alert(t('routines.error_title'), t('routines.error_message'));
+        } finally {
+            setLoading(false);
+        }
     };
+
+    if (loading) {
+        return (
+            <SafeAreaView style={styles.safeContainer}>
+                <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="large" color="#6B5B95" />
+                </View>
+            </SafeAreaView>
+        );
+    }
 
     return (
         <SafeAreaView style={styles.safeContainer}>
@@ -23,7 +52,7 @@ export default function Routines() {
                 >
                     <MaterialIcons name="arrow-circle-left" size={28} color="#6B5B95" />
                 </Pressable>
-                <Text style={styles.headerTitle}>Rutinas</Text>
+                <Text style={styles.headerTitle}>{t('routines.header_title')}</Text>
                 <View style={styles.headerSpacer} />
             </View>
 
@@ -34,7 +63,7 @@ export default function Routines() {
             >
                 {/* Título */}
                 <Text style={styles.mainTitle}>
-                    ¿Qué te apetece hacer hoy?
+                    {t('routines.main_title')}
                 </Text>
 
                 {/* Recuadros de categorías */}
@@ -46,14 +75,14 @@ export default function Routines() {
                             styles.cardColor1,
                             pressed && styles.cardPressed
                         ]}
-                        onPress={() => handleCardPress('cardio')}
+                        onPress={() => handleCardPress('aerobic')}
                     >
                         <Text style={styles.cardEmoji}>
                             <MaterialIcons name="directions-run" size={64} color="#6B5B95" />
                         </Text>
-                        <Text style={styles.cardTitle}>Cardio</Text>
+                        <Text style={styles.cardTitle}>{t('routines.categories.cardio.title')}</Text>
                         <Text style={styles.cardDescription}>
-                            Ejercicios para el corazón
+                            {t('routines.categories.cardio.description')}
                         </Text>
                     </Pressable>
 
@@ -64,14 +93,14 @@ export default function Routines() {
                             styles.cardColor2,
                             pressed && styles.cardPressed
                         ]}
-                        onPress={() => handleCardPress('fuerza')}
+                        onPress={() => handleCardPress('strength')}
                     >
                         <Text style={styles.cardEmoji}>
                             <MaterialIcons name="fitness-center" size={64} color="#6B5B95" />
                         </Text>
-                        <Text style={styles.cardTitle}>Fuerza</Text>
+                        <Text style={styles.cardTitle}>{t('routines.categories.strength.title')}</Text>
                         <Text style={styles.cardDescription}>
-                            Fortalece tus músculos
+                            {t('routines.categories.strength.description')}
                         </Text>
                     </Pressable>
 
@@ -82,14 +111,14 @@ export default function Routines() {
                             styles.cardColor3,
                             pressed && styles.cardPressed
                         ]}
-                        onPress={() => handleCardPress('flexibilidad')}
+                        onPress={() => handleCardPress('flexibility')}
                     >
                         <Text style={styles.cardEmoji}>
                             <MaterialIcons name="self-improvement" size={64} color="#6B5B95" />
                         </Text>
-                        <Text style={styles.cardTitle}>Flexibilidad</Text>
+                        <Text style={styles.cardTitle}>{t('routines.categories.flexibility.title')}</Text>
                         <Text style={styles.cardDescription}>
-                            Mejora tu rango de movimiento
+                            {t('routines.categories.flexibility.description')}
                         </Text>
                     </Pressable>
 
@@ -100,14 +129,14 @@ export default function Routines() {
                             styles.cardColor4,
                             pressed && styles.cardPressed
                         ]}
-                        onPress={() => handleCardPress('equilibrio')}
+                        onPress={() => handleCardPress('balance')}
                     >
                         <Text style={styles.cardEmoji}>
                             <MaterialIcons name="balance" size={64} color="#6B5B95" />
                         </Text>
-                        <Text style={styles.cardTitle}>Equilibrio</Text>
+                        <Text style={styles.cardTitle}>{t('routines.categories.balance.title')}</Text>
                         <Text style={styles.cardDescription}>
-                            Mejora tu estabilidad y coordinación
+                            {t('routines.categories.balance.description')}
                         </Text>
                     </Pressable>
                 </View>
@@ -123,6 +152,11 @@ const styles = StyleSheet.create({
     safeContainer: {
         flex: 1,
         backgroundColor: 'lightcyan', // o lemonchiffon
+    },
+    loadingContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
 
     // ← HEADER MINIMALISTA
@@ -225,6 +259,7 @@ const styles = StyleSheet.create({
         fontSize: 22,
         fontWeight: '600',
         color: '#2D3E50',
+        marginTop: 12,
         marginBottom: 6,
     },
     cardDescription: {

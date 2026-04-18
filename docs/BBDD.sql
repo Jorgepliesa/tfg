@@ -14,7 +14,7 @@ CREATE TABLE Item (
 );
 
 CREATE TABLE Avatar (
-    id INT,
+    id SERIAL,
     FP INT NOT NULL,
     PRIMARY KEY (id),
     CHECK (FP >= 0)
@@ -86,6 +86,8 @@ CREATE TABLE has (
 
 CREATE TABLE Routine (
     name VARCHAR(255),
+    category category_type NOT NULL,
+    difficulty difficulty_type NOT NULL,
     PRIMARY KEY (name)
     -- description TEXT
 );

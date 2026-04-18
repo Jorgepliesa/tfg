@@ -95,4 +95,23 @@ api.interceptors.response.use(
   }
 );
 
+/*
+// ==================== EJERCICIOS EJECUTADOS ====================
+
+export const executeApi = {
+  createExecute: (data: {
+    exercise: string;
+    numRepsDone: number;
+    tInitial: string; // ISO date string
+    tFinal: string;   // ISO date string
+  }) =>
+    api.post('/execute/create', data),
+
+  getSessionExecutes: (sessionDate: string) =>
+    api.get(`/execute/session/${sessionDate}`),
+
+  getExecute: (exerciseName: string) =>
+    api.get(`/execute/${exerciseName}`),
+};*/
+
 export default api;

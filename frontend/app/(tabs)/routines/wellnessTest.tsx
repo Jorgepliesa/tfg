@@ -1,12 +1,15 @@
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { View, Text, StyleSheet, Pressable, ScrollView, Platform } from 'react-native';
+import { useRouter } from 'expo-router';
+import { View, Text, StyleSheet, Pressable, ScrollView, Platform, Alert, ActivityIndicator } from 'react-native';
 import { MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState } from 'react';
+import { useSession } from '../../../context/SessionContext';
+import { sessionService } from '../../../services/sessionService';
+import { wellnessTestService } from '../../../services/wellnessTestService';
 
-type CategoryType = 'pain' | 'fatigue' | 'sleep' | 'mood';
+type CategoryType = 'pain' | 'fatigue' | 'sleepiness' | 'mood';
 
-const CATEGORIES: CategoryType[] = ['pain', 'fatigue', 'sleep', 'mood'];
+const CATEGORIES: CategoryType[] = ['pain', 'fatigue', 'sleepiness', 'mood'];
 
 const categoryLabels = {
     pain: '¿Cuánto te sientes de dolorido?',
@@ -17,34 +20,74 @@ const categoryLabels = {
 
 export default function WellnessTest() {
     const router = useRouter();
+    const { routineName, setInitialTest, sessionDate, setSessionDuration } = useSession();
     const [selectedRating, setSelectedRating] = useState<number | null>(null);
-    const { categoryIndex = '0', sessionId } = useLocalSearchParams();
-    const currentIndex = parseInt(categoryIndex as string);
-    const currentCategory = CATEGORIES[currentIndex] as CategoryType;
+    const [categoryIndex, setCategoryIndex] = useState(0);
+    const [loading, setLoading] = useState(false);
+    const [ratings, setRatings] = useState<Record<CategoryType, number | null>>({
+        pain: null,
+        fatigue: null,
+        sleepiness: null,
+        mood: null,
+    });
     
+    const currentCategory = CATEGORIES[categoryIndex] as CategoryType;
+    
+    const handleRatingChange = (rating: number) => {
+        setSelectedRating(rating);
+        setRatings({ ...ratings, [currentCategory]: rating });
+    };
+
     const handleNext = async () => {
-        if (!selectedRating) return;
+        if (selectedRating === null) return;
         
-        // Guardar la respuesta en base de datos (implementar luego)
-        console.log(`Saved ${currentCategory}: ${selectedRating}`);
-        
-        const nextIndex = currentIndex + 1;
+        const nextIndex = categoryIndex + 1;
         
         if (nextIndex < CATEGORIES.length) {
             // Ir a la siguiente categoría
-            router.push({
-                pathname: '/routines/wellnessTest',
-                params: { categoryIndex: nextIndex, sessionId },
-            });
+            setCategoryIndex(nextIndex);
+            setSelectedRating(ratings[CATEGORIES[nextIndex]] ?? null);
         } else {
             // Todas las categorías completadas, ir a ejercicios
-            router.push({
-                pathname: '/routines/exercises/exercises',
-                params: { sessionId },
-            });
+            await saveInitialTest();
         }
-        
-        setSelectedRating(null);
+    };
+
+    const saveInitialTest = async () => {
+        try {
+            setLoading(true);
+            
+            // Crear sesión en backend
+            const sessionResponse = await sessionService.startSession({
+                routine: routineName || 'Unknown',
+                isCoop: false,
+            });
+            
+            // Guardar test inicial
+            await wellnessTestService.createTest({
+                pain: ratings.pain || 3,
+                sleepiness: ratings.sleepiness || 3,
+                mood: ratings.mood || 3,
+                fatigue: ratings.fatigue || 3,
+                type: 'INITIAL',
+            });
+            
+            // Guardar en contexto
+            setInitialTest({
+                pain: ratings.pain || 3,
+                sleepiness: ratings.sleepiness || 3,
+                mood: ratings.mood || 3,
+                fatigue: ratings.fatigue || 3,
+            });
+            
+            // Ir a ejercicios
+            router.push('/(tabs)/routines/exercises/exercises');
+        } catch (error) {
+            console.error('Error saving initial test:', error);
+            Alert.alert('Error', 'No se pudo guardar el test inicial');
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
@@ -66,123 +109,138 @@ export default function WellnessTest() {
 
             {/* Indicador de progreso */}
             <Text style={styles.progressText}>
-                Pregunta {currentIndex + 1} de {CATEGORIES.length}
+                Pregunta {categoryIndex + 1} de {CATEGORIES.length}
             </Text>
 
             {/* Título */}
-            <Text style={styles.mainTitle}>{categoryLabels[currentCategory]}</Text>
+            <Text style={styles.mainTitle}>{currentCategory}</Text>
 
             {/* Escala Likert 5 puntos centrada (2-2-1) */}
-            <View style={styles.likertGridContainer}>
-                {/* Fila 1: 2 botones */}
-                <View style={styles.likertRow}>
-                    {[
-                        { rating: 1, icon: 'emoticon-cry', label: 'Muy mal', color: '#E74C3C' },
-                        { rating: 2, icon: 'emoticon-sad', label: 'Mal', color: '#F39C12' },
-                    ].map(({ rating, icon, label, color }) => (
-                        <Pressable
-                            key={rating}
-                            style={[
-                                styles.likertButton,
-                                selectedRating === rating && styles.likertButtonSelected,
-                            ]}
-                            onPress={() => setSelectedRating(rating)}
-                        >
-                            <MaterialCommunityIcons
-                                name={icon as any}
-                                size={selectedRating === rating ? 100 : 90}
-                                color={color}
-                                style={{ marginBottom: 4 }}
-                            />
-                            <Text style={[
-                                styles.likertButtonLabel,
-                                selectedRating === rating && styles.likertButtonLabelSelected,
-                            ]}>
-                                {label}
-                            </Text>
-                        </Pressable>
-                    ))}
-                </View>
+            <ScrollView 
+                style={styles.container}
+                contentContainerStyle={styles.scrollContent}
+                showsVerticalScrollIndicator={false}
+            >
+                <View style={styles.likertGridContainer}>
+                    {/* Fila 1: 2 botones */}
+                    <View style={styles.likertRow}>
+                        {[
+                            { rating: 1, icon: 'emoticon-cry', label: 'Muy mal', color: '#E74C3C' },
+                            { rating: 2, icon: 'emoticon-sad', label: 'Mal', color: '#F39C12' },
+                        ].map(({ rating, icon, label, color }) => (
+                            <Pressable
+                                key={rating}
+                                style={[
+                                    styles.likertButton,
+                                    selectedRating === rating && styles.likertButtonSelected,
+                                ]}
+                                onPress={() => handleRatingChange(rating)}
+                            >
+                                <MaterialCommunityIcons
+                                    name={icon as any}
+                                    size={selectedRating === rating ? 100 : 90}
+                                    color={color}
+                                    style={{ marginBottom: 4 }}
+                                />
+                                <Text style={[
+                                    styles.likertButtonLabel,
+                                    selectedRating === rating && styles.likertButtonLabelSelected,
+                                ]}>
+                                    {label}
+                                </Text>
+                            </Pressable>
+                        ))}
+                    </View>
 
-                {/* Fila 2: 2 botones */}
-                <View style={styles.likertRow}>
-                    {[
-                        { rating: 3, icon: 'emoticon-neutral', label: 'Regular', color: '#F1C40F' },
-                        { rating: 4, icon: 'emoticon-happy', label: 'Bien', color: '#57ea94ff' },
-                    ].map(({ rating, icon, label, color }) => (
-                        <Pressable
-                            key={rating}
-                            style={[
-                                styles.likertButton,
-                                selectedRating === rating && styles.likertButtonSelected,
-                            ]}
-                            onPress={() => setSelectedRating(rating)}
-                        >
-                            <MaterialCommunityIcons
-                                name={icon as any}
-                                size={selectedRating === rating ? 100 : 90}
-                                color={color}
-                                style={{ marginBottom: 4 }}
-                            />
-                            <Text style={[
-                                styles.likertButtonLabel,
-                                selectedRating === rating && styles.likertButtonLabelSelected,
-                            ]}>
-                                {label}
-                            </Text>
-                        </Pressable>
-                    ))}
-                </View>
+                    {/* Fila 2: 2 botones */}
+                    <View style={styles.likertRow}>
+                        {[
+                            { rating: 3, icon: 'emoticon-neutral', label: 'Regular', color: '#F1C40F' },
+                            { rating: 4, icon: 'emoticon-happy', label: 'Bien', color: '#57EA94' },
+                        ].map(({ rating, icon, label, color }) => (
+                            <Pressable
+                                key={rating}
+                                style={[
+                                    styles.likertButton,
+                                    selectedRating === rating && styles.likertButtonSelected,
+                                ]}
+                                onPress={() => handleRatingChange(rating)}
+                            >
+                                <MaterialCommunityIcons
+                                    name={icon as any}
+                                    size={selectedRating === rating ? 100 : 90}
+                                    color={color}
+                                    style={{ marginBottom: 4 }}
+                                />
+                                <Text style={[
+                                    styles.likertButtonLabel,
+                                    selectedRating === rating && styles.likertButtonLabelSelected,
+                                ]}>
+                                    {label}
+                                </Text>
+                            </Pressable>
+                        ))}
+                    </View>
 
-                {/* Fila 3: 1 botón (centrado) */}
-                <View style={styles.likertRow}>
-                    {[
-                        { rating: 5, icon: 'emoticon', label: 'Muy bien', color: '#127e3fff' },
-                    ].map(({ rating, icon, label, color }) => (
-                        <Pressable
-                            key={rating}
-                            style={[
-                                styles.likertButton,
-                                selectedRating === rating && styles.likertButtonSelected,
-                            ]}
-                            onPress={() => setSelectedRating(rating)}
-                        >
-                            <MaterialCommunityIcons
-                                name={icon as any}
-                                size={selectedRating === rating ? 100 : 90}
-                                color={color}
-                                style={{ marginBottom: 4 }}
-                            />
-                            <Text style={[
-                                styles.likertButtonLabel,
-                                selectedRating === rating && styles.likertButtonLabelSelected,
-                            ]}>
-                                {label}
-                            </Text>
-                        </Pressable>
-                    ))}
+                    {/* Fila 3: 1 botón (centrado) */}
+                    <View style={styles.likertRow}>
+                        {[
+                            { rating: 5, icon: 'emoticon', label: 'Muy bien', color: '#127E3F' },
+                        ].map(({ rating, icon, label, color }) => (
+                            <Pressable
+                                key={rating}
+                                style={[
+                                    styles.likertButton,
+                                    selectedRating === rating && styles.likertButtonSelected,
+                                ]}
+                                onPress={() => handleRatingChange(rating)}
+                            >
+                                <MaterialCommunityIcons
+                                    name={icon as any}
+                                    size={selectedRating === rating ? 100 : 90}
+                                    color={color}
+                                    style={{ marginBottom: 4 }}
+                                />
+                                <Text style={[
+                                    styles.likertButtonLabel,
+                                    selectedRating === rating && styles.likertButtonLabelSelected,
+                                ]}>
+                                    {label}
+                                </Text>
+                            </Pressable>
+                        ))}
+                    </View>
                 </View>
-            </View>
+            </ScrollView>
             
-            {/* Botón Siguiente (opcional) */}
-            {selectedRating && (
+            {/* Botón Siguiente */}
+            {selectedRating !== null && (
                 <Pressable 
                     style={({ pressed }) => [
                         styles.nextButton,
                         pressed && styles.nextButtonPressed,
+                        loading && styles.nextButtonDisabled,
                     ]}
                     onPress={handleNext}
+                    disabled={loading}
                 >
-                    <Text style={styles.nextButtonText}>
-                        {currentIndex === CATEGORIES.length - 1 ? 'Empezar' : 'Siguiente'}
-                    </Text>                    
-                    <MaterialIcons name="arrow-forward" size={24} color="#fff" />
+                    {loading ? (
+                        <ActivityIndicator size="small" color="#fff" />
+                    ) : (
+                        <>
+                            <Text style={styles.nextButtonText}>
+                                {categoryIndex === CATEGORIES.length - 1 ? 'Empezar ejercicios' : 'Siguiente'}
+                            </Text>                    
+                            <MaterialIcons name="arrow-forward" size={24} color="#fff" />
+                        </>
+                    )}
                 </Pressable>
             )}
             
         </SafeAreaView> 
     );
 }
+
 
 
 const styles = StyleSheet.create({
@@ -223,11 +281,11 @@ const styles = StyleSheet.create({
     },
 
     progressText: {
-    fontSize: 14,
-    color: '#9B9B9B',
-    textAlign: 'center',
-    marginTop: 8,
-    fontWeight: '500',
+        fontSize: 14,
+        color: '#9B9B9B',
+        textAlign: 'center',
+        marginTop: 8,
+        fontWeight: '500',
     },
 
     // ← TÍTULO PRINCIPAL
@@ -242,8 +300,17 @@ const styles = StyleSheet.create({
         lineHeight: 32,
     },
 
-    // ← ESCALA LIKERT (CENTRADA)
+    // ← SCROLL
+    container: {
+        flex: 1,
+    },
+    scrollContent: {
+        flexGrow: 1,
+        justifyContent: 'center',
+        paddingVertical: 20,
+    },
 
+    // ← ESCALA LIKERT (CENTRADA)
     likertGridContainer: {
         flex: 1,
         flexDirection: 'column',
@@ -319,6 +386,9 @@ const styles = StyleSheet.create({
     nextButtonPressed: {
         opacity: 0.8,
         transform: [{ scale: 0.95 }],
+    },
+    nextButtonDisabled: {
+        opacity: 0.6,
     },
     nextButtonText: {
         fontSize: 18,

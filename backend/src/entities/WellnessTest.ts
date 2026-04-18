@@ -7,7 +7,7 @@ export enum WellnessTestType {
   FINAL = 'final',
 }
 
-@Index("wellness_test_pkey", ["session", "type", "userAccount"], {
+@Index("wellness_test_pkey", ["session", "type", "userId"], {
   unique: true,
 })
 @Entity("wellness_test", { schema: "public" })
@@ -27,10 +27,11 @@ export class WellnessTest {
     example: 1,
     description: "The unique identifier of the user account",
   })
-  @PrimaryColumn({type: "integer", name: "user_account" })
-  userAccount: number;
+  @PrimaryColumn({type: "integer", name: "user_id" })
+  userId: number;
 
   @ApiProperty({
+    enum: WellnessTestType,
     example: WellnessTestType.INITIAL,
     description: "The type of the wellness test",
   })
@@ -38,8 +39,11 @@ export class WellnessTest {
   type: WellnessTestType;
 
   @ApiProperty({
-    example: 1,
-    description: "The pain level",
+    type: 'integer',
+    minimum: 1,
+    maximum: 5,
+    description: 'Pain level (1-5 Likert scale)',
+    example: 3
   })
   @Column("integer", { name: "pain" })
   pain: number;
@@ -68,7 +72,7 @@ export class WellnessTest {
   @ManyToOne(() => Session, (session) => session.wellnessTests)
   @JoinColumn([
     { name: "session", referencedColumnName: "date" },
-    { name: "user_account", referencedColumnName: "userAccount" },
+    { name: "user_id", referencedColumnName: "userId" },
   ])
   sessionEntity: Session;
 }

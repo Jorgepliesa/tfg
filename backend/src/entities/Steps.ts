@@ -2,7 +2,7 @@ import { Check, Column, Entity, Index, JoinColumn, ManyToOne, PrimaryColumn } fr
 import { UserAccount } from "./UserAccount";
 import { ApiProperty } from "@nestjs/swagger";
 
-@Index("steps_pkey", ["date", "userAccount"], { unique: true })
+@Index("steps_pkey", ["date", "userId"], { unique: true })
 @Index("steps_date_idx", ["date"], {})
 @Entity("steps", { schema: "public" })
 @Check(`"num_steps" >= 0 AND "num_steps" <= 1000000`)

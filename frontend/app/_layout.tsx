@@ -1,6 +1,8 @@
 import { authService } from "@/services/authService";
 import { Stack, useRouter, useSegments } from "expo-router";
 import { useEffect, useState } from "react";
+import { SessionProvider } from "@/context/SessionContext";
+import '../i18n'; // <-- Configuración de internacionalización i18next
 
 export default function RootLayout() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
@@ -41,18 +43,20 @@ export default function RootLayout() {
   }
 
   return (
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="login" />
-      <Stack.Screen name="welcome" />
-      <Stack.Screen 
-        name="parental-dashboard"
-        options={{
-          presentation: 'modal',
-          headerShown: true,
-          title: 'Parental Dashboard',
-        }}
-      />
-    </Stack>
+    <SessionProvider>
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="login" />
+        <Stack.Screen name="welcome" />
+        <Stack.Screen 
+          name="parental-dashboard"
+          options={{
+            presentation: 'modal',
+            headerShown: true,
+            title: 'Parental Dashboard',
+          }}
+        />
+      </Stack>
+    </SessionProvider>
   );
 }
 

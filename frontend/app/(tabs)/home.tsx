@@ -1,10 +1,11 @@
 import { avatarService } from "@/services/avatarService";
 import { StepsService }  from "@/services/stepsService"
 import { UserService } from "@/services/userService";
+import { sessionService } from "@/services/sessionService";
 import MaterialIcons from "@expo/vector-icons/build/MaterialIcons";
 import { router, useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
-import { ImageBackground, Text, View, StyleSheet, ActivityIndicator, Platform, Dimensions, Image, Pressable } from "react-native";
+import { ImageBackground, Text, View, StyleSheet, ActivityIndicator, Platform, Dimensions, Image, Pressable, Alert } from "react-native";
 
 export default function Home() {
   const router = useRouter();
@@ -39,8 +40,21 @@ export default function Home() {
   };
 
   // Funciones de navegacion (Entrenar, tienda e inventario con scroll derecha)
-  const goToExercises = () => {
-    router.push('/(tabs)/routines');
+  const goToExercises = async () => {
+    try {
+      setLoading(true);
+      const { canStart } = await sessionService.canStartSession();
+      if (canStart) {
+        router.push('/(tabs)/routines');
+      } else {
+        Alert.alert('¡Buen trabajo!', 'Ya has completado tu entrenamiento de hoy. ¡Vuelve mañana!');
+      }
+    } catch (error) {
+      console.error('Error checking session start:', error);
+      Alert.alert('Error', 'Hubo un problema al comprobar tu sesión. Inténtalo de nuevo.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Mostrar spinner de pantalla completa mientras se cargan los datos
