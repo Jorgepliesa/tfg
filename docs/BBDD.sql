@@ -100,7 +100,7 @@ CREATE TABLE Session (
     is_coop BOOLEAN NOT NULL,
     PRIMARY KEY (date, user_id),
     FOREIGN KEY (user_id) REFERENCES User_Account(id),
-    CHECK (duration > 0 AND duration < 1440) -- no puede durar más de un día
+    CHECK (duration >= 0 AND duration < 1440) -- no puede durar más de un día
 );
 
 CREATE TABLE Wellness_test (

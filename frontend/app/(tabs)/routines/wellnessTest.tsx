@@ -63,7 +63,7 @@ export default function WellnessTest() {
                 sleepiness: ratings.sleepiness || 3,
                 mood: ratings.mood || 3,
                 fatigue: ratings.fatigue || 3,
-                type: 'INITIAL',
+                type: 'initial',
             });
             
             // Guardar en contexto

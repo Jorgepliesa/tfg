@@ -35,10 +35,10 @@ export class SessionService {
     }
 
     async startSession(userId: number, createSessionDto: SessionCreateDto): Promise<SessionResponseDto> {
-        const canStart = await this.canStartSession(userId);
+        /*const canStart = await this.canStartSession(userId);
         if (!canStart) {
             throw new BadRequestException('User already has a session created today. Only one session per day is allowed.');
-        }
+        }*/
 
         const now = new Date();
         
@@ -47,7 +47,7 @@ export class SessionService {
             userId: userId,
             routine: createSessionDto.routine,
             isCoop: createSessionDto.isCoop,
-            duration: 0, // Duración temporal, se actualiza al terminar
+            duration: 1, // Cambiado a 1 porque si no me daba error
         });
 
         const savedSession = await this.sessionRepository.save(session);

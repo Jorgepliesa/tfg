@@ -3,6 +3,7 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { WellnessTestCreateDto, WellnessTestResponseDto } from "../dtos/wellnessTest.dto";
 import { WellnessTest, WellnessTestType } from "../entities/WellnessTest";
+import { Session } from "../entities/Session";
 
 
 @Injectable()
@@ -10,6 +11,8 @@ export class WellnessTestService {
   constructor(
     @InjectRepository(WellnessTest)
     private wellnessTestRepository: Repository<WellnessTest>,
+    @InjectRepository(Session)
+    private sessionRepository: Repository<Session>,
   ) {}
 
   async findByUser(userId: number): Promise<WellnessTestResponseDto[]> {
@@ -32,6 +35,19 @@ export class WellnessTestService {
       order: { type: 'ASC' }, // initial primero
     });
     return tests.map(test => this.toResponseDto(test));
+  }
+
+  async createForCurrentSession(userId: number, createWellnessTestDto: WellnessTestCreateDto): Promise<WellnessTestResponseDto> {
+    const activeSession = await this.sessionRepository.findOne({
+      where: { userId: userId },
+      order: { date: 'DESC' },
+    });
+
+    if (!activeSession) {
+      throw new BadRequestException('No active session found for the user.');
+    }
+
+    return this.create(activeSession.date, userId, createWellnessTestDto);
   }
 
   async create(session: Date, userId: number, createWellnessTestDto: WellnessTestCreateDto): Promise<WellnessTestResponseDto> {

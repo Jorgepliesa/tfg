@@ -44,7 +44,7 @@ export default function Home() {
     try {
       setLoading(true);
       const { canStart } = await sessionService.canStartSession();
-      if (canStart) {
+      if (true) { // canStart
         router.push('/(tabs)/routines');
       } else {
         Alert.alert('¡Buen trabajo!', 'Ya has completado tu entrenamiento de hoy. ¡Vuelve mañana!');

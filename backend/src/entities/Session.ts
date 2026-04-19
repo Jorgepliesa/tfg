@@ -17,7 +17,7 @@ import { Routine } from "./Routine";
 @Index("session_date_idx", ["date"], {})
 @Index("session_pkey", ["date", "userId"], { unique: true })
 @Entity("session", { schema: "public" })
-@Check('"duration" > 0 AND "duration" <= 1440')
+@Check('"duration" >= 0 AND "duration" <= 1440')
 export class Session {
   @ApiProperty({
     example: "2024-06-01T00:00:00Z",

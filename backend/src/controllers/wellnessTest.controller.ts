@@ -45,6 +45,6 @@ export class WellnessTestController {
     type: WellnessTestResponseDto,
   })
   async createWellnessTest(@Request() req, @Body() createWellnessTestDto: WellnessTestCreateDto) {
-    return this.wellnessTestService.create(new Date(), req.user.id, createWellnessTestDto);
+    return this.wellnessTestService.createForCurrentSession(req.user.id, createWellnessTestDto);
   }
 }

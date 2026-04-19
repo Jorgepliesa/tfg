@@ -6,7 +6,7 @@ export const wellnessTestService = {
     sleepiness: number;
     mood: number;
     fatigue: number;
-    type: 'INITIAL' | 'FINAL';
+    type: 'initial' | 'final';
   }): Promise<void> {
     try {
       await api.post('/wellness-test/create', data);
