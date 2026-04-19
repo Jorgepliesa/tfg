@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, Pressable, ScrollView, Platform, Alert, Activit
 import { MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useSession } from '../../../context/SessionContext';
 import { sessionService } from '../../../services/sessionService';
 import { wellnessTestService } from '../../../services/wellnessTestService';
@@ -11,15 +12,10 @@ type CategoryType = 'pain' | 'fatigue' | 'sleepiness' | 'mood';
 
 const CATEGORIES: CategoryType[] = ['pain', 'fatigue', 'sleepiness', 'mood'];
 
-const categoryLabels = {
-    pain: '¿Cuánto te sientes de dolorido?',
-    fatigue: '¿Cuánta fatiga sientes?',
-    sleep: '¿Cómo fue tu sueño?',
-    mood: '¿Cuál es tu ánimo?',
-};
 
 export default function WellnessTest() {
     const router = useRouter();
+    const { t } = useTranslation();
     const { routineName, setInitialTest, sessionDate, setSessionDuration } = useSession();
     const [selectedRating, setSelectedRating] = useState<number | null>(null);
     const [categoryIndex, setCategoryIndex] = useState(0);
@@ -57,12 +53,10 @@ export default function WellnessTest() {
         try {
             setLoading(true);
             
-            // Crear sesión en backend
             const sessionResponse = await sessionService.startSession({
                 routine: routineName || 'Unknown',
                 isCoop: false,
             });
-            
             // Guardar test inicial
             await wellnessTestService.createTest({
                 pain: ratings.pain || 3,
@@ -84,7 +78,7 @@ export default function WellnessTest() {
             router.push('/(tabs)/routines/exercises/exercises');
         } catch (error) {
             console.error('Error saving initial test:', error);
-            Alert.alert('Error', 'No se pudo guardar el test inicial');
+            Alert.alert(t('wellnessTest.error.title'), t('wellnessTest.error.message'));
         } finally {
             setLoading(false);
         }
@@ -92,41 +86,32 @@ export default function WellnessTest() {
 
     return (
         <SafeAreaView style={styles.safeContainer}>
-            {/* Header Minimalista */}
             <View style={styles.header}>
                 <Pressable 
                     style={({ pressed }) => [
                         styles.backButton,
                         pressed && { opacity: 0.6 }
                     ]}
-                    onPress={() => router.back()} // TODO: gestionar bien el back
+                    onPress={() => router.back()}
                 >
                     <MaterialIcons name="arrow-circle-left" size={28} color="#6B5B95" />
                 </Pressable>
-                <Text style={styles.headerTitle}>Pre-ejercicio</Text>
+                <Text style={styles.headerTitle}>{t('wellnessTest.header_title')}</Text>
                 <View style={styles.headerSpacer} />
             </View>
 
-            {/* Indicador de progreso */}
-            <Text style={styles.progressText}>
-                Pregunta {categoryIndex + 1} de {CATEGORIES.length}
-            </Text>
+            <Text style={styles.mainTitle}>{t(`wellnessTest.questions.${currentCategory}`)}</Text>
 
-            {/* Título */}
-            <Text style={styles.mainTitle}>{currentCategory}</Text>
-
-            {/* Escala Likert 5 puntos centrada (2-2-1) */}
             <ScrollView 
                 style={styles.container}
                 contentContainerStyle={styles.scrollContent}
                 showsVerticalScrollIndicator={false}
             >
                 <View style={styles.likertGridContainer}>
-                    {/* Fila 1: 2 botones */}
                     <View style={styles.likertRow}>
                         {[
-                            { rating: 1, icon: 'emoticon-cry', label: 'Muy mal', color: '#E74C3C' },
-                            { rating: 2, icon: 'emoticon-sad', label: 'Mal', color: '#F39C12' },
+                            { rating: 1, icon: 'emoticon-cry', label: t('wellnessTest.likert.very_bad'), color: '#E74C3C' },
+                            { rating: 2, icon: 'emoticon-sad', label: t('wellnessTest.likert.bad'), color: '#F39C12' },
                         ].map(({ rating, icon, label, color }) => (
                             <Pressable
                                 key={rating}
@@ -152,11 +137,10 @@ export default function WellnessTest() {
                         ))}
                     </View>
 
-                    {/* Fila 2: 2 botones */}
                     <View style={styles.likertRow}>
                         {[
-                            { rating: 3, icon: 'emoticon-neutral', label: 'Regular', color: '#F1C40F' },
-                            { rating: 4, icon: 'emoticon-happy', label: 'Bien', color: '#57EA94' },
+                            { rating: 3, icon: 'emoticon-neutral', label: t('wellnessTest.likert.neutral'), color: '#F1C40F' },
+                            { rating: 4, icon: 'emoticon-happy', label: t('wellnessTest.likert.good'), color: '#57EA94' },
                         ].map(({ rating, icon, label, color }) => (
                             <Pressable
                                 key={rating}
@@ -182,10 +166,9 @@ export default function WellnessTest() {
                         ))}
                     </View>
 
-                    {/* Fila 3: 1 botón (centrado) */}
                     <View style={styles.likertRow}>
                         {[
-                            { rating: 5, icon: 'emoticon', label: 'Muy bien', color: '#127E3F' },
+                            { rating: 5, icon: 'emoticon', label: t('wellnessTest.likert.very_good'), color: '#127E3F' },
                         ].map(({ rating, icon, label, color }) => (
                             <Pressable
                                 key={rating}
@@ -229,14 +212,15 @@ export default function WellnessTest() {
                     ) : (
                         <>
                             <Text style={styles.nextButtonText}>
-                                {categoryIndex === CATEGORIES.length - 1 ? 'Empezar ejercicios' : 'Siguiente'}
+                                {categoryIndex === CATEGORIES.length - 1 
+                                    ? t('wellnessTest.buttons.start') 
+                                    : t('wellnessTest.buttons.next')}
                             </Text>                    
                             <MaterialIcons name="arrow-forward" size={24} color="#fff" />
                         </>
                     )}
                 </Pressable>
             )}
-            
         </SafeAreaView> 
     );
 }

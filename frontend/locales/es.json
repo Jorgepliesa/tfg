@@ -22,5 +22,30 @@
         "description": "Mejora tu estabilidad y coordinación"
       }
     }
+  },
+  "wellnessTest": {
+    "header_title": "Pre-ejercicio",
+    "questions": {
+      "pain": "¿Cómo te sientes de dolorido?",
+      "fatigue": "¿Cuánta fatiga sientes?",
+      "sleepiness": "¿Cómo fue tu sueño?",
+      "mood": "¿Cuál es tu ánimo?"
+    },
+    "likert": {
+      "very_bad": "Muy mal",
+      "bad": "Mal",
+      "neutral": "Regular",
+      "good": "Bien",
+      "very_good": "Muy bien"
+    },
+    "buttons": {
+      "next": "Siguiente",
+      "start": "Empezar ejercicios"
+    },
+    "error": {
+      "title": "Error",
+      "message": "No se pudo guardar el test inicial"
+    }
   }
 }
+

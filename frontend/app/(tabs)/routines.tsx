@@ -9,7 +9,7 @@ import { useSession } from '../../context/SessionContext';
 
 export default function Routines() {
     const router = useRouter();
-    const { t } = useTranslation(); // <-- Inicializamos el hook
+    const { t } = useTranslation();
     const { initSession } = useSession();
     const [loading, setLoading] = useState(false);
 
