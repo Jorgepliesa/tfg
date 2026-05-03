@@ -64,7 +64,6 @@ export class SessionService {
             order: {
                 date: 'DESC',
             },
-            relations: ['wellnessTests', 'executes'],
         });
 
         if (!session) {
@@ -83,25 +82,10 @@ export class SessionService {
             order: {
                 date: 'DESC',
             },
-            relations: ['wellnessTests', 'executes'],
         });
 
         if (!session) {
             throw new NotFoundException('No active session found');
-        }
-
-        // Validar que haya completado ambos tests (inicial y final)
-        const wellnessTests = await this.wellnessTestRepository.find({
-            where: {
-                session: session.date,
-                userId: userId,
-            },
-        });
-
-        if (wellnessTests.length < 2) {
-            throw new BadRequestException(
-                `Cannot end session: need initial and final wellness tests. Found ${wellnessTests.length}/2`,
-            );
         }
 
         // Actualizar duración
@@ -113,17 +97,21 @@ export class SessionService {
 
     // Métodos privados para convertir entidades a DTOs
     private async toResponseDto(session: Session): Promise<SessionResponseDto> {
+        const start = new Date(session.date);
+        start.setMilliseconds(0);
+        const end = new Date(session.date);
+        end.setMilliseconds(999);
         // Cargar tests y ejercicios si no están cargados
         const wellnessTests = await this.wellnessTestRepository.find({
             where: {
-                session: session.date,
+                session: Between(start, end),
                 userId: session.userId,
             },
         });
 
         const executes = await this.executeRepository.find({
             where: {
-                session: session.date,
+                session: Between(start, end),
                 userId: session.userId,
             },
         });

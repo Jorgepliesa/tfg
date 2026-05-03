@@ -1,11 +1,105 @@
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
+import { MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSession } from '../../../../context/SessionContext';
+import { useState, useEffect } from 'react';
 
 export default function Exercises() {
     const router = useRouter();
     const { sessionId } = useLocalSearchParams();
+    const { exercises, currentExerciseIndex, moveToNextExercise, addExecutedExercise } = useSession();
+
+    const [isResting, setIsResting] = useState(false);
+    const [tInitial, setTInitial] = useState(new Date());
+    const [restTimer, setRestTimer] = useState(0);
+
+    const currentExercise = exercises[currentExerciseIndex];
+
+    useEffect(() => {
+        if (!isResting) {
+            setTInitial(new Date());
+        }
+
+        if(restTimer <= 0 && isResting){
+            setIsResting(false);
+            goToNext();
+            return;
+        }
+
+        const timer = setInterval(() => {
+            setRestTimer(prev => prev - 1);
+        }, 1000);
+
+        return () => clearInterval(timer);
+    }, [currentExerciseIndex, isResting, restTimer]);
+
+    const handleNext = () => {
+        if (!isResting) {
+            // Log the exercise
+            addExecutedExercise({
+                exercise: currentExercise.exerciseName,
+                numRepsDone: currentExercise.numReps,
+                tInitial: tInitial,
+                tFinal: new Date()
+            });
+
+            // If it has rest time, go to rest
+            if (currentExercise.rest > 0) {
+                setRestTimer(currentExercise.rest);
+                setIsResting(true);
+            } else {
+                goToNext();
+            }
+        } else {
+            // Finished rest
+            setIsResting(false);
+            goToNext();
+        }
+    };
+
+    const goToNext = () => {
+        if (currentExerciseIndex >= exercises.length - 1) {
+            // Reached the end, go to final test
+            router.push({ pathname: '/(tabs)/routines/wellnessTest', params: { type: 'final' } });
+            return;
+        }
+        moveToNextExercise();
+    };
+
+    if (!currentExercise) {
+        return (
+            <SafeAreaView style={styles.safeContainer}>
+                <View style={styles.container}>
+                    <Text style={styles.placeholder}>Cargando ejercicios...</Text>
+                </View>
+            </SafeAreaView>
+        );
+    }
+
+    if (isResting) {
+        return (
+            <SafeAreaView style={styles.safeContainer}>
+                <View style={[styles.container, { backgroundColor: '#E8F5E9' }]}>
+                    <MaterialCommunityIcons name="timer-sand" size={80} color="#4CAF50" />
+                    <Text style={[styles.mainTitle, { marginTop: 16 }]}>¡Descanso!</Text>
+                    <Text style={{ fontSize: 24, fontWeight: 'bold', color: '#4CAF50', marginVertical: 20 }}>
+                        {restTimer} segundos
+                    </Text>
+                    <Pressable 
+                        style={({ pressed }) => [
+                            styles.nextButton,
+                            pressed && styles.nextButtonPressed,
+                        ]}
+                        onPress={handleNext}
+                    >
+                        <Text style={styles.nextButtonText}>Continuar</Text>
+                        <MaterialIcons name="arrow-forward" size={28} color="#fff" />
+                    </Pressable>
+                </View>
+            </SafeAreaView>
+        );
+    }
 
     return (
         <SafeAreaView style={styles.safeContainer}>
@@ -23,36 +117,39 @@ export default function Exercises() {
                 <View style={styles.headerSpacer} />
             </View>
 
-            <Text style={styles.mainTitle}>Título del ejercicio</Text>
+            <Text style={styles.mainTitle}>{currentExercise.exerciseName}</Text>
 
             {/* Audiovisual */}
             <View style={styles.container}>
                 <Text style={styles.placeholder}>[Aquí se mostraría el video o imagen del ejercicio]</Text>
             </View>
 
-             {/* Repeticiones y series */}
-             <View style={styles.container}>
-                <Text style={styles.placeholder}>[Aquí se mostrarían las repeticiones y series recomendadas]</Text>
-            </View>
-
-            {/* Material necesario */}
+            {/* Repeticiones y series */}
             <View style={styles.container}>
-                <Text style={styles.placeholder}>[Aquí se mostraría el material necesario para el ejercicio]</Text>
+                <Text style={styles.placeholder}>
+                    Repeticiones: {currentExercise.numReps} | Series: {currentExercise.numSeries}
+                </Text>
+                {currentExercise.duration && (
+                    <Text style={styles.placeholder}>
+                        Duración: {currentExercise.duration}
+                    </Text>
+                )}
             </View>
 
-             {/* Descripción */}
-             <View style={styles.container}>
-                <Text style={styles.placeholder}>[Aquí se mostraría la descripción detallada del ejercicio]</Text>
+            {/* Descripción */}
+            <View style={styles.container}>
+                <Text style={styles.placeholder}>{currentExercise.description}</Text>
             </View>
 
             {/* Botón Siguiente */}
-                <Pressable 
+            <Pressable 
                 style={({ pressed }) => [
                     styles.nextButton,
                     pressed && styles.nextButtonPressed,
                 ]}
-                //onPress={handleNext}
+                onPress={handleNext}
             >
+                <Text style={styles.nextButtonText}>Siguiente</Text>
                 <MaterialIcons name="arrow-forward" size={28} color="#fff" />
             </Pressable>
         </SafeAreaView>

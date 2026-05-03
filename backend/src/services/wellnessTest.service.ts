@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
+import { Between, Repository } from "typeorm";
 import { WellnessTestCreateDto, WellnessTestResponseDto } from "../dtos/wellnessTest.dto";
 import { WellnessTest, WellnessTestType } from "../entities/WellnessTest";
 import { Session } from "../entities/Session";
@@ -51,12 +51,16 @@ export class WellnessTestService {
   }
 
   async create(session: Date, userId: number, createWellnessTestDto: WellnessTestCreateDto): Promise<WellnessTestResponseDto> {
-    //this.validateLikertScale(createWellnessTestDto); No hace falta que el usuario no puede equivocarse.
+    // Use Between for the duplicate check to handle timestamp precision
+    const startOfSecond = new Date(session);
+    startOfSecond.setMilliseconds(0);
+    const endOfSecond = new Date(session);
+    endOfSecond.setMilliseconds(999);
 
     // Validar que no exista un test del mismo tipo en esa sesión
     const existingTest = await this.wellnessTestRepository.findOne({
       where: {
-        session: session,
+        session: Between(startOfSecond, endOfSecond),
         userId: userId,
         type: createWellnessTestDto.type,
       },
