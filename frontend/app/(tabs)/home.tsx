@@ -5,7 +5,7 @@ import { sessionService } from "@/services/sessionService";
 import MaterialIcons from "@expo/vector-icons/build/MaterialIcons";
 import { router, useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
-import { ImageBackground, Text, View, StyleSheet, ActivityIndicator, Platform, Dimensions, Image, Pressable, Alert } from "react-native";
+import { ImageBackground, Text, View, StyleSheet, ActivityIndicator, Platform, Dimensions, Image, Pressable, Alert, ScrollView } from "react-native";
 
 export default function Home() {
   const router = useRouter();
@@ -44,7 +44,7 @@ export default function Home() {
     try {
       setLoading(true);
       const { canStart } = await sessionService.canStartSession();
-      if (true) { // canStart
+      if (true) {
         router.push('/(tabs)/routines');
       } else {
         Alert.alert('¡Buen trabajo!', 'Ya has completado tu entrenamiento de hoy. ¡Vuelve mañana!');
@@ -52,6 +52,30 @@ export default function Home() {
     } catch (error) {
       console.error('Error checking session start:', error);
       Alert.alert('Error', 'Hubo un problema al comprobar tu sesión. Inténtalo de nuevo.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const goToShop = () => {
+    try{
+      setLoading(true);
+      router.push('/(tabs)/shop');
+    } catch (error) {
+      console.error('Error navigating to shop:', error);
+      Alert.alert('Error', 'Hubo un problema al navegar a la tienda. Inténtalo de nuevo.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const goToMemorials = () => {
+    try {
+      setLoading(true);
+      router.push('/(tabs)/memorials');
+    } catch (error) {
+      console.error('Error navigating to memorials:', error);
+      Alert.alert('Error', 'Hubo un problema al navegar al álbum. Inténtalo de nuevo.');
     } finally {
       setLoading(false);
     }
@@ -93,17 +117,53 @@ export default function Home() {
             style={styles.avatarImage}
           />
         </View>
-            {/* Botón de entrada */}
-            <Pressable
-                style={({ pressed }) => [
-                    styles.enterButton,
-                    pressed && styles.buttonPressed,
-                ]}
-                onPress={goToExercises}
+            {/* scroll horizontal para navegación inferior */}
+            <ScrollView
+                horizontal
+                pagingEnabled
+                snapToInterval={Dimensions.get('window').width}
+                snapToAlignment="center"
+                showsHorizontalScrollIndicator={false}
+                style={styles.navScrollView}
+                contentContainerStyle={styles.navScrollContent}
             >
-                <Text style={styles.enterButtonText}>Entrenar!</Text>
-                <MaterialIcons name="fitness-center" size={28} color="#fff" />
-            </Pressable>
+                <View style={styles.navScreen}>
+                    <Pressable
+                        style={({ pressed }) => [styles.navButton, styles.navButtonShop, pressed && styles.buttonPressed]}
+                        onPress={goToShop}
+                    >
+                        <MaterialIcons name="storefront" size={32} color="#fff" />
+                        <Text style={styles.navButtonText}>Tienda</Text>
+                    </Pressable>
+
+                    <Pressable
+                        style={({ pressed }) => [styles.navButton, styles.navButtonTrain, pressed && styles.buttonPressed]}
+                        onPress={goToExercises}
+                    >
+                        <Text style={styles.navButtonTrainText}>¡Entrenar!</Text>
+                        <MaterialIcons name="fitness-center" size={36} color="#fff" />
+                    </Pressable>
+
+                    <Pressable
+                        style={({ pressed }) => [styles.navButton, styles.navButtonAlbum, pressed && styles.buttonPressed]}
+                        onPress={goToMemorials}
+                    >
+                        <MaterialIcons name="photo-album" size={32} color="#fff" />
+                        <Text style={styles.navButtonText}>Álbum</Text>
+                    </Pressable>
+                </View>
+
+                {/* Segunda "página" del ScrollView (Inventario) */}
+                <View style={styles.navScreen}>
+                    <Pressable
+                        style={({ pressed }) => [styles.navButton, styles.navButtonInventory, pressed && styles.buttonPressed]}
+                        onPress={() => router.push('/(tabs)/inventory')}
+                    >
+                        <MaterialIcons name="backpack" size={48} color="#fff" />
+                        <Text style={styles.navButtonInventoryText}>Ver Inventario</Text>
+                    </Pressable>
+                </View>
+            </ScrollView>
       </ImageBackground>
     </View>
   );
@@ -225,5 +285,71 @@ const styles = StyleSheet.create({
   buttonPressed: {
     opacity: 0.7,
     transform: [{ scale: 0.95 }],
+  },
+  navScrollView: {
+    position: 'absolute',
+    bottom: 40,
+    left: 0,
+    right: 0,
+  },
+  navScrollContent: {
+      alignItems: 'center',
+      flexDirection: 'row',
+  },
+  navScreen: {
+      width: Dimensions.get('window').width,
+      flexDirection: 'row',
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingHorizontal: 24,
+      gap: 16,
+  },
+  navButton: {
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: 16,
+      paddingHorizontal: 24,
+      borderRadius: 24,
+      elevation: 6,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 3 },
+      shadowOpacity: 0.25,
+      shadowRadius: 4,
+      minWidth: 80,
+      minHeight: 80,
+      gap: 6,
+  },
+  navButtonTrain: { 
+    backgroundColor: '#e7bf3dff',
+    flexDirection: 'column',
+    minWidth: 160,
+    minHeight: 120,
+    borderRadius: 30,
+    gap: 8,
+  },
+  navButtonTrainText: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#fff',
+  },
+  navButtonShop:  { backgroundColor: '#6B5B95' },
+  navButtonInventory: { 
+    backgroundColor: '#2D9E75',
+    minWidth: 200,
+    minHeight: 120,
+    borderRadius: 30,
+  },
+  navButtonInventoryText: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#fff',
+    marginTop: 8,
+  },
+  navButtonAlbum: { backgroundColor: '#c85a5a' },
+  navButtonText: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: '#fff',
   },
 });

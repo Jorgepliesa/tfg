@@ -31,6 +31,7 @@ import { Equipment } from './entities/Equipment';
 import { MeasurementParameter } from './entities/MeasurementParameter';
 import { WellnessTestModule } from './modules/wellnessTest.module';
 import { SessionModule } from './modules/session.module';
+import { ShopModule } from './modules/shop.modules';
 
 @Module({
   imports: [
@@ -81,6 +82,7 @@ import { SessionModule } from './modules/session.module';
     SessionModule,
     RoutineModule,
     ExecuteModule,
+    ShopModule,
   ],
   controllers: [AppController],
   providers: [AppService],

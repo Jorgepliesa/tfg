@@ -7,19 +7,16 @@ import { useTranslation } from 'react-i18next';
 import { useSession } from '../../../context/SessionContext';
 import { sessionService } from '../../../services/sessionService';
 import { wellnessTestService } from '../../../services/wellnessTestService';
-import { useLocalSearchParams } from 'expo-router';
 
 type CategoryType = 'pain' | 'fatigue' | 'sleepiness' | 'mood';
 
 const CATEGORIES: CategoryType[] = ['pain', 'fatigue', 'sleepiness', 'mood'];
 
+
 export default function WellnessTest() {
     const router = useRouter();
-    const { type } = useLocalSearchParams<{ type: 'initial' | 'final' }>();
-    const isFinal = type === 'final';
-    
     const { t } = useTranslation();
-    const { routineName, setInitialTest, setFinalTest, sessionDate, setSessionDuration, setFpGained, resetSession } = useSession();
+    const { routineName, setInitialTest, sessionDate, setSessionDuration } = useSession();
     const [selectedRating, setSelectedRating] = useState<number | null>(null);
     const [categoryIndex, setCategoryIndex] = useState(0);
     const [loading, setLoading] = useState(false);
@@ -47,12 +44,8 @@ export default function WellnessTest() {
             setCategoryIndex(nextIndex);
             setSelectedRating(ratings[CATEGORIES[nextIndex]] ?? null);
         } else {
-            // Todas las categorías completadas
-            if (isFinal) {
-                await saveFinalTest();
-            } else {
-                await saveInitialTest();
-            }
+            // Todas las categorías completadas, ir a ejercicios
+            await saveInitialTest();
         }
     };
 
@@ -85,53 +78,6 @@ export default function WellnessTest() {
             router.push('/(tabs)/routines/exercises/exercises');
         } catch (error) {
             console.error('Error saving initial test:', error);
-            Alert.alert(t('wellnessTest.error.title'), t('wellnessTest.error.message'));
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const saveFinalTest = async () => {
-        try {
-            setLoading(true);
-            
-            // Calcular duración (en segundos)
-            const duration = sessionDate ? Math.floor((new Date().getTime() - sessionDate.getTime()) / 1000) : 600;
-            
-            // Guardar en contexto
-            setFinalTest({
-                pain: ratings.pain || 3,
-                sleepiness: ratings.sleepiness || 3,
-                mood: ratings.mood || 3,
-                fatigue: ratings.fatigue || 3,
-            });
-            
-            setSessionDuration(duration);
-            
-            // Guardar test final
-            await wellnessTestService.createTest({
-                pain: ratings.pain || 3,
-                sleepiness: ratings.sleepiness || 3,
-                mood: ratings.mood || 3,
-                fatigue: ratings.fatigue || 3,
-                type: 'final',
-            });
-            
-            // Finalizar sesión en backend
-            const endedSession = await sessionService.endSession(duration);
-            
-            if (endedSession) {
-                // Aquí calcularemos el FP ganado (o lo devuelve el backend)
-                // Por ahora pondremos un valor por defecto que podrías reempalzar
-                setFpGained(100); 
-            }
-            
-            // Ir al resultado/recompensa o a index de rutinas
-            Alert.alert('¡Sesión Completada!', 'Has terminado tu rutina exitosamente.');
-            resetSession();
-            router.push('/(tabs)/home');
-        } catch (error) {
-            console.error('Error saving final test:', error);
             Alert.alert(t('wellnessTest.error.title'), t('wellnessTest.error.message'));
         } finally {
             setLoading(false);
@@ -267,7 +213,7 @@ export default function WellnessTest() {
                         <>
                             <Text style={styles.nextButtonText}>
                                 {categoryIndex === CATEGORIES.length - 1 
-                                    ? (isFinal ? 'Finalizar Sesión' : t('wellnessTest.buttons.start')) 
+                                    ? t('wellnessTest.buttons.start') 
                                     : t('wellnessTest.buttons.next')}
                             </Text>                    
                             <MaterialIcons name="arrow-forward" size={24} color="#fff" />
