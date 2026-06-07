@@ -3,6 +3,7 @@ CREATE TYPE challenge_type AS ENUM ('active', 'inactive');
 CREATE TYPE wellness_type AS ENUM ('initial', 'final');
 CREATE TYPE category_type AS ENUM ('aerobic', 'strength', 'flexibility', 'balance');
 CREATE TYPE difficulty_type AS ENUM ('easy', 'medium', 'hard');
+CREATE TYPE gender_type AS ENUM ('male', 'female', 'other');
 
 CREATE TABLE Item (
     name VARCHAR(255),
@@ -56,6 +57,24 @@ CREATE TABLE User_Account (
     PRIMARY KEY (id),
     FOREIGN KEY (avatar) REFERENCES Avatar(id),
     CHECK (streak >= 0)
+);
+
+CREATE TABLE Clinical_Profile (
+    id INT,
+    age INT NOT NULL,
+    gender gender_type NOT NULL,
+    height INT NOT NULL,
+    weight INT NOT NULL,
+    birthDate DATE NOT NULL,
+    diagnosis VARCHAR(100) NOT NULL,
+    treatmentEndDate DATE NOT NULL,
+    hospital VARCHAR(255) NOT NULL,
+    PRIMARY KEY (id),
+    FOREIGN KEY (id) REFERENCES User_Account(id)    
+    CHECK (age >= 0 AND age < 100),
+    CHECK (height >= 0 AND height < 200),
+    CHECK (weight >= 0 AND weight < 1000),
+    CHECK (birthDate < CURRENT_DATE)
 );
 
 CREATE TABLE Steps (
