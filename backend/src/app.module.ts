@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { ServeStaticModule } from '@nestjs/serve-static';
+import { join } from 'path';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
@@ -32,6 +34,8 @@ import { MeasurementParameter } from './entities/MeasurementParameter';
 import { WellnessTestModule } from './modules/wellnessTest.module';
 import { SessionModule } from './modules/session.module';
 import { ShopModule } from './modules/shop.modules';
+import { MemorialModule } from './modules/memorial.module';
+import { ChallengeModule } from './modules/coopChallenge.module';
 
 @Module({
   imports: [
@@ -40,7 +44,14 @@ import { ShopModule } from './modules/shop.modules';
       isGlobal: true,
       envFilePath: '.env',
     }),
-    
+
+    // Servir imágenes estáticas desde la carpeta uploads/
+    // Accesibles en: http://host:3000/uploads/<subcarpeta>/<archivo>
+    ServeStaticModule.forRoot({
+      rootPath: join(__dirname, '..', 'uploads'),
+      serveRoot: '/uploads',
+    }),
+
     // Configuración de TypeORM
     TypeOrmModule.forRoot({
       type: 'postgres',
@@ -73,7 +84,7 @@ import { ShopModule } from './modules/shop.modules';
       synchronize: false, // ¡IMPORTANTE! false en producción para no perder datos TODO
       logging: process.env.NODE_ENV === 'development',
     }),
-    
+
     // Módulos de funcionalidad
     AuthModule,
     AvatarModule,
@@ -83,8 +94,10 @@ import { ShopModule } from './modules/shop.modules';
     RoutineModule,
     ExecuteModule,
     ShopModule,
+    MemorialModule,
+    ChallengeModule,
   ],
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule {}
+export class AppModule { }

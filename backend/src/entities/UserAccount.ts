@@ -46,7 +46,7 @@ export class UserAccount {
   @Column({ name: "avatar" })
   avatar: number;
 
-  @OneToMany(() => Has, (has) => has.userId)
+  @OneToMany(() => Has, (has) => has.userAccount)
   memorials: Has[];
 
   @OneToMany(() => Session, (session) => session.userAccount)

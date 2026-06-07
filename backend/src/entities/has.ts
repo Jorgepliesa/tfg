@@ -10,14 +10,14 @@ export class Has {
         example: "Memorial de John Doe",
         description: "The unique name of the memorial",
     })
-    @PrimaryColumn({type: "varchar", name: "memorial", length: 255  })
+    @PrimaryColumn({ type: "varchar", name: "memorial", length: 255 })
     memorial: string;
 
     @ApiProperty({
         example: 1,
         description: "The unique ID of the user",
     })
-    @PrimaryColumn({type: "integer", name: "user_id" })
+    @PrimaryColumn({ type: "integer", name: "user_id" })
     userId: number;
 
     @ManyToOne(() => Memorial)
@@ -25,5 +25,6 @@ export class Has {
     memorialEntity: Memorial;
 
     @ManyToOne(() => UserAccount, userAccount => userAccount.memorials)
-    userAccountEntity: UserAccount;
+    @JoinColumn({ name: "user_id", referencedColumnName: "id" })
+    userAccount: UserAccount;
 }

@@ -1,3 +1,4 @@
+// Pagina deprecrated , usar la nueva dentro de home
 import { useRouter } from 'expo-router';
 import {
     View, Text, StyleSheet, Pressable,

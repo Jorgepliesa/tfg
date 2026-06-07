@@ -13,7 +13,7 @@ import { Routine } from '../entities/Routine';
 import { Plan } from '../entities/Plan';
 import { Execute } from '../entities/Execute';
 import { Complete } from '../entities/Complete';
-import { CoopChallenge } from '../entities/CoopChallenge';
+import { CoopChallenge, CoopChallengeStatus } from '../entities/CoopChallenge';
 import { Memorial } from '../entities/Memorial';
 import { Has } from '../entities/has';
 import { Audiovisual } from '../entities/Audiovisual';
@@ -63,17 +63,21 @@ async function bootstrap() {
     const userRepository = dataSource.getRepository(UserAccount);
     const avatarRepository = dataSource.getRepository(Avatar);
     const stepsRepository = dataSource.getRepository(Steps);
+    const hasRepository = dataSource.getRepository(Has);
 
     // Hash de la contraseña
     const hashedPassword = await bcrypt.hash('1234', 10);
 
     // Verificar si el usuario ya existe
-    const existingUser = await userRepository.findOne({ 
+    const existingUser = await userRepository.findOne({
       where: { id: 821011 },
       relations: ['avatarEntity', 'steps'] // Cargar relaciones para eliminar dependencias
     });
-    
+
     if (existingUser) {
+      // Eliminar los registros de la tabla "has" asociados a este usuario
+      await hasRepository.delete({ userId: existingUser.id });
+
       // Eliminar los pasos primero (porque Steps DEPENDE de UserAccount)
       if (existingUser.steps && existingUser.steps.length > 0) {
         await stepsRepository.remove(existingUser.steps);
@@ -82,7 +86,7 @@ async function bootstrap() {
       // Eliminar el usuario ANTES de eliminar el avatar
       // porque UserAccount TIENE la Foreign Key "avatar" que DEPENDE de la tabla Avatar.
       await userRepository.remove(existingUser);
-      
+
       // Finalmente eliminar el avatar de forma segura
       if (existingUser.avatarEntity) {
         await avatarRepository.remove(existingUser.avatarEntity);
@@ -115,6 +119,70 @@ async function bootstrap() {
     });
 
     await stepsRepository.save(steps);
+
+    // ──────────────────────────────────────────────────────────
+    // Memorial de ejemplo con imagen estática servida por el backend
+    // La imagen se sirve en: http://host:3000/uploads/memorials/android-icon-foreground.png
+    // En la BD guardamos solo la ruta relativa (sin la base URL)
+    // ──────────────────────────────────────────────────────────
+    const memorialRepository = dataSource.getRepository(Memorial);
+
+    const existingMemorial = await memorialRepository.findOne({
+      where: { name: 'Memorial de Ejemplo' },
+    });
+
+    if (!existingMemorial) {
+      const memorial = memorialRepository.create({
+        name: 'Memorial de Ejemplo',
+        description: 'Este es un memorial de ejemplo que muestra cómo se gestionan las imágenes en el backend.',
+        image: 'uploads/memorials/android-icon-foreground.png', // ← ruta relativa
+      });
+      await memorialRepository.save(memorial);
+      console.log('✅ Memorial de ejemplo creado');
+    } else {
+      console.log('ℹ️  El memorial de ejemplo ya existía, se omite');
+    }
+
+    // Desbloquear el memorial de ejemplo para el usuario 821011
+    //const hasRepository = dataSource.getRepository(Has);
+    const existingHas = await hasRepository.findOne({
+      where: { userId: user.id, memorial: 'Memorial de Ejemplo' }
+    });
+
+    if (!existingHas) {
+      const has = hasRepository.create({
+        userId: user.id,
+        memorial: 'Memorial de Ejemplo'
+      });
+      await hasRepository.save(has);
+      console.log('✅ Memorial desbloqueado para el usuario 821011');
+    } else {
+      console.log('ℹ️  El memorial ya estaba desbloqueado para el usuario 821011');
+    }
+
+    // Seeding de Reto Cooperativo de prueba
+    const challengeRepository = dataSource.getRepository(CoopChallenge);
+    const existingChallenge = await challengeRepository.findOne({
+      where: { name: 'El Dragón del Sedentarismo' }
+    });
+
+    if (!existingChallenge) {
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - 2); // hace 2 días
+      const endDate = new Date();
+      endDate.setDate(endDate.getDate() + 5); // en 5 días
+      const challenge = challengeRepository.create({
+        name: 'El Dragón del Sedentarismo',
+        startDate,
+        endDate,
+        status: CoopChallengeStatus.ACTIVE,
+        totalSteps: 100000,
+      });
+      await challengeRepository.save(challenge);
+      console.log('✅ Reto cooperativo de prueba creado');
+    } else {
+      console.log('ℹ️  El reto cooperativo de prueba ya existía');
+    }
 
     console.log('✅ Usuario creado exitosamente con ID 821011');
 
