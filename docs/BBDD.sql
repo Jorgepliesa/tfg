@@ -49,33 +49,36 @@ CREATE TABLE complete (
     FOREIGN KEY (avatar) REFERENCES Avatar(id)
 );
 
-CREATE TABLE User_Account (
-    id INT,
-    avatar INT NOT NULL,
-    streak INT NOT NULL,
-    password VARCHAR(255) NOT NULL,
-    PRIMARY KEY (id),
-    FOREIGN KEY (avatar) REFERENCES Avatar(id),
-    CHECK (streak >= 0)
-);
-
 CREATE TABLE Clinical_Profile (
-    id INT,
+    id SERIAL,
     age INT NOT NULL,
     gender gender_type NOT NULL,
     height INT NOT NULL,
     weight INT NOT NULL,
-    birthDate DATE NOT NULL,
+    birth_date DATE NOT NULL,
     diagnosis VARCHAR(100) NOT NULL,
-    treatmentEndDate DATE NOT NULL,
+    treatment_end_date DATE NOT NULL,
     hospital VARCHAR(255) NOT NULL,
     PRIMARY KEY (id),
-    FOREIGN KEY (id) REFERENCES User_Account(id)    
     CHECK (age >= 0 AND age < 100),
     CHECK (height >= 0 AND height < 200),
     CHECK (weight >= 0 AND weight < 1000),
-    CHECK (birthDate < CURRENT_DATE)
+    CHECK (birth_date < CURRENT_DATE)
 );
+
+CREATE TABLE User_Account (
+    id INT,
+    avatar INT NOT NULL,
+    streak INT NOT NULL,
+    clinical_profile INT UNIQUE NOT NULL,
+    password VARCHAR(255) NOT NULL,
+    PRIMARY KEY (id),
+    FOREIGN KEY (avatar) REFERENCES Avatar(id),
+    FOREIGN KEY (clinical_profile) REFERENCES Clinical_Profile(id),
+    CHECK (streak >= 0)
+);
+
+
 
 CREATE TABLE Steps (
     date TIMESTAMPTZ,

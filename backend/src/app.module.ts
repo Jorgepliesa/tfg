@@ -36,6 +36,8 @@ import { SessionModule } from './modules/session.module';
 import { ShopModule } from './modules/shop.modules';
 import { MemorialModule } from './modules/memorial.module';
 import { ChallengeModule } from './modules/coopChallenge.module';
+import { ClinicalProfile } from './entities/ClinicalProfile';
+import { ClinicalProfileModule } from './modules/clinicalProfile.module';
 
 @Module({
   imports: [
@@ -80,6 +82,7 @@ import { ChallengeModule } from './modules/coopChallenge.module';
         MuscleGroup,
         Equipment,
         MeasurementParameter,
+        ClinicalProfile,
       ],
       synchronize: false, // ¡IMPORTANTE! false en producción para no perder datos TODO
       logging: process.env.NODE_ENV === 'development',
@@ -96,6 +99,7 @@ import { ChallengeModule } from './modules/coopChallenge.module';
     ShopModule,
     MemorialModule,
     ChallengeModule,
+    ClinicalProfileModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -63,7 +63,7 @@ export class ClinicalProfile {
     description: "Birth date of the patient",
     example: '2000-01-01',
   })
-  @Column("date", { name: "birthDate" })
+  @Column("date", { name: "birth_date" })
   birthDate: Date;
 
   @ApiProperty({
@@ -77,7 +77,7 @@ export class ClinicalProfile {
     description: "Treatment end date of the patient",
     example: '2025-01-01',
   })
-  @Column("date", { name: "treatmentEndDate" })
+  @Column("date", { name: "treatment_end_date" })
   treatmentEndDate: Date;
 
   @ApiProperty({
@@ -88,6 +88,5 @@ export class ClinicalProfile {
   hospital: string;
 
   @OneToOne(() => UserAccount, (userAccount) => userAccount.clinicalProfile)
-  @JoinColumn({ name: "user_id", referencedColumnName: "clinical_profile" }) // Es necesario? 
   userAccount: UserAccount;
 }

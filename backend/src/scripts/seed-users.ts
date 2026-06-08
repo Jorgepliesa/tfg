@@ -20,9 +20,16 @@ import { Audiovisual } from '../entities/Audiovisual';
 import { MuscleGroup } from '../entities/MuscleGroup';
 import { Equipment } from '../entities/Equipment';
 import { MeasurementParameter } from '../entities/MeasurementParameter';
+import { ClinicalProfile } from '../entities/ClinicalProfile';
 
 // Cargar variables de entorno
 dotenv.config();
+
+export enum Gender {
+  MALE = "male",
+  FEMALE = "female",
+  OTHER = "other",
+}
 
 async function bootstrap() {
   // Crear conexión directa a la base de datos
@@ -53,6 +60,8 @@ async function bootstrap() {
       MuscleGroup,
       Equipment,
       MeasurementParameter,
+      Complete,
+      ClinicalProfile,
     ],
     synchronize: false,
   });
@@ -64,6 +73,7 @@ async function bootstrap() {
     const avatarRepository = dataSource.getRepository(Avatar);
     const stepsRepository = dataSource.getRepository(Steps);
     const hasRepository = dataSource.getRepository(Has);
+    const clinicalProfileRepository = dataSource.getRepository(ClinicalProfile);
 
     // Hash de la contraseña
     const hashedPassword = await bcrypt.hash('1234', 10);
@@ -91,6 +101,10 @@ async function bootstrap() {
       if (existingUser.avatarEntity) {
         await avatarRepository.remove(existingUser.avatarEntity);
       }
+
+      if (existingUser.clinicalProfileEntity) {
+        await clinicalProfileRepository.remove(existingUser.clinicalProfileEntity);
+      }
     }
 
     // Crear avatar primero (solo con FP)
@@ -100,12 +114,27 @@ async function bootstrap() {
 
     const savedAvatar = await avatarRepository.save(avatar);
 
+    // Crear los datos del perfil clínico
+    const clinicalProfile = clinicalProfileRepository.create({
+      age: 10,
+      gender: Gender.MALE,
+      height: 150,
+      weight: 50,
+      birthDate: new Date('2000-01-01'),
+      diagnosis: "Diabetes",
+      treatmentEndDate: new Date('2025-01-01'),
+      hospital: 'Hospital General',
+    });
+
+    const savedClinicalProfile = await clinicalProfileRepository.save(clinicalProfile);
+
     // Crear usuario con referencia al avatar
     const user = userRepository.create({
       id: 821011,
       password: hashedPassword,
       streak: 0,
-      avatar: savedAvatar.id, // FK al avatar
+      avatar: savedAvatar.id, // FK al avatar,
+      clinicalProfile: savedClinicalProfile.id, // FK al perfil clínico
     });
 
     await userRepository.save(user);
@@ -119,71 +148,71 @@ async function bootstrap() {
     });
 
     await stepsRepository.save(steps);
-
-    // ──────────────────────────────────────────────────────────
-    // Memorial de ejemplo con imagen estática servida por el backend
-    // La imagen se sirve en: http://host:3000/uploads/memorials/android-icon-foreground.png
-    // En la BD guardamos solo la ruta relativa (sin la base URL)
-    // ──────────────────────────────────────────────────────────
-    const memorialRepository = dataSource.getRepository(Memorial);
-
-    const existingMemorial = await memorialRepository.findOne({
-      where: { name: 'Memorial de Ejemplo' },
-    });
-
-    if (!existingMemorial) {
-      const memorial = memorialRepository.create({
-        name: 'Memorial de Ejemplo',
-        description: 'Este es un memorial de ejemplo que muestra cómo se gestionan las imágenes en el backend.',
-        image: 'uploads/memorials/android-icon-foreground.png', // ← ruta relativa
-      });
-      await memorialRepository.save(memorial);
-      console.log('✅ Memorial de ejemplo creado');
-    } else {
-      console.log('ℹ️  El memorial de ejemplo ya existía, se omite');
-    }
-
-    // Desbloquear el memorial de ejemplo para el usuario 821011
-    //const hasRepository = dataSource.getRepository(Has);
-    const existingHas = await hasRepository.findOne({
-      where: { userId: user.id, memorial: 'Memorial de Ejemplo' }
-    });
-
-    if (!existingHas) {
-      const has = hasRepository.create({
-        userId: user.id,
-        memorial: 'Memorial de Ejemplo'
-      });
-      await hasRepository.save(has);
-      console.log('✅ Memorial desbloqueado para el usuario 821011');
-    } else {
-      console.log('ℹ️  El memorial ya estaba desbloqueado para el usuario 821011');
-    }
-
-    // Seeding de Reto Cooperativo de prueba
-    const challengeRepository = dataSource.getRepository(CoopChallenge);
-    const existingChallenge = await challengeRepository.findOne({
-      where: { name: 'El Dragón del Sedentarismo' }
-    });
-
-    if (!existingChallenge) {
-      const startDate = new Date();
-      startDate.setDate(startDate.getDate() - 2); // hace 2 días
-      const endDate = new Date();
-      endDate.setDate(endDate.getDate() + 5); // en 5 días
-      const challenge = challengeRepository.create({
-        name: 'El Dragón del Sedentarismo',
-        startDate,
-        endDate,
-        status: CoopChallengeStatus.ACTIVE,
-        totalSteps: 100000,
-      });
-      await challengeRepository.save(challenge);
-      console.log('✅ Reto cooperativo de prueba creado');
-    } else {
-      console.log('ℹ️  El reto cooperativo de prueba ya existía');
-    }
-
+    /*
+        // ──────────────────────────────────────────────────────────
+        // Memorial de ejemplo con imagen estática servida por el backend
+        // La imagen se sirve en: http://host:3000/uploads/memorials/android-icon-foreground.png
+        // En la BD guardamos solo la ruta relativa (sin la base URL)
+        // ──────────────────────────────────────────────────────────
+        const memorialRepository = dataSource.getRepository(Memorial);
+    
+        const existingMemorial = await memorialRepository.findOne({
+          where: { name: 'Memorial de Ejemplo' },
+        });
+    
+        if (!existingMemorial) {
+          const memorial = memorialRepository.create({
+            name: 'Memorial de Ejemplo',
+            description: 'Este es un memorial de ejemplo que muestra cómo se gestionan las imágenes en el backend.',
+            image: 'uploads/memorials/android-icon-foreground.png', // ← ruta relativa
+          });
+          await memorialRepository.save(memorial);
+          console.log('✅ Memorial de ejemplo creado');
+        } else {
+          console.log('ℹ️  El memorial de ejemplo ya existía, se omite');
+        }
+    
+        // Desbloquear el memorial de ejemplo para el usuario 821011
+        //const hasRepository = dataSource.getRepository(Has);
+        const existingHas = await hasRepository.findOne({
+          where: { userId: user.id, memorial: 'Memorial de Ejemplo' }
+        });
+    
+        if (!existingHas) {
+          const has = hasRepository.create({
+            userId: user.id,
+            memorial: 'Memorial de Ejemplo'
+          });
+          await hasRepository.save(has);
+          console.log('✅ Memorial desbloqueado para el usuario 821011');
+        } else {
+          console.log('ℹ️  El memorial ya estaba desbloqueado para el usuario 821011');
+        }
+    
+        // Seeding de Reto Cooperativo de prueba
+        const challengeRepository = dataSource.getRepository(CoopChallenge);
+        const existingChallenge = await challengeRepository.findOne({
+          where: { name: 'El Dragón del Sedentarismo' }
+        });
+    
+        if (!existingChallenge) {
+          const startDate = new Date();
+          startDate.setDate(startDate.getDate() - 2); // hace 2 días
+          const endDate = new Date();
+          endDate.setDate(endDate.getDate() + 5); // en 5 días
+          const challenge = challengeRepository.create({
+            name: 'El Dragón del Sedentarismo',
+            startDate,
+            endDate,
+            status: CoopChallengeStatus.ACTIVE,
+            totalSteps: 100000,
+          });
+          await challengeRepository.save(challenge);
+          console.log('✅ Reto cooperativo de prueba creado');
+        } else {
+          console.log('ℹ️  El reto cooperativo de prueba ya existía');
+        }
+    */
     console.log('✅ Usuario creado exitosamente con ID 821011');
 
   } catch (error) {
