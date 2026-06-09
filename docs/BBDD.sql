@@ -51,14 +51,14 @@ CREATE TABLE complete (
 
 CREATE TABLE Clinical_Profile (
     id SERIAL,
-    age INT NOT NULL,
-    gender gender_type NOT NULL,
-    height INT NOT NULL,
-    weight INT NOT NULL,
-    birth_date DATE NOT NULL,
-    diagnosis VARCHAR(100) NOT NULL,
-    treatment_end_date DATE NOT NULL,
-    hospital VARCHAR(255) NOT NULL,
+    age INT,
+    gender gender_type,
+    height INT,
+    weight INT,
+    birth_date DATE,
+    diagnosis VARCHAR(100),
+    treatment_end_date DATE,
+    hospital VARCHAR(255),
     PRIMARY KEY (id),
     CHECK (age >= 0 AND age < 100),
     CHECK (height >= 0 AND height < 200),
@@ -78,7 +78,13 @@ CREATE TABLE User_Account (
     CHECK (streak >= 0)
 );
 
-
+CREATE TABLE Supervisor_Note (
+    clinical_profile INT NOT NULL,
+    content TEXT NOT NULL,
+    date TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY(clinical_profile, date),
+    FOREIGN KEY (clinical_profile) REFERENCES Clinical_Profile(id)
+);
 
 CREATE TABLE Steps (
     date TIMESTAMPTZ,

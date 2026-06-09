@@ -16,4 +16,12 @@ export const clinicalProfileService = {
         const response = await api.patch('/clinical-profile', data);
         return response.data;
     },
+
+    async addNote(content: string) {
+        const response = await api.post('/clinical-profile/notes', { content });
+        return response.data;
+    },
+    async deleteNote(date: string) {
+        await api.delete(`/clinical-profile/notes/${encodeURIComponent(date)}`);
+    },
 };

@@ -38,6 +38,7 @@ import { MemorialModule } from './modules/memorial.module';
 import { ChallengeModule } from './modules/coopChallenge.module';
 import { ClinicalProfile } from './entities/ClinicalProfile';
 import { ClinicalProfileModule } from './modules/clinicalProfile.module';
+import { SupervisorNote } from './entities/SupervisorNote';
 
 @Module({
   imports: [
@@ -83,6 +84,7 @@ import { ClinicalProfileModule } from './modules/clinicalProfile.module';
         Equipment,
         MeasurementParameter,
         ClinicalProfile,
+        SupervisorNote,
       ],
       synchronize: false, // ¡IMPORTANTE! false en producción para no perder datos TODO
       logging: process.env.NODE_ENV === 'development',

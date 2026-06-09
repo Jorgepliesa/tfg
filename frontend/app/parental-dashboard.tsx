@@ -8,6 +8,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useEffect, useState } from 'react';
 import { clinicalProfileService } from '@/services/clinicalProfileService';
+import { authService } from '@/services/authService';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CONTENT_WIDTH = Math.min(SCREEN_WIDTH, 480); // cap en tablet
@@ -27,6 +28,17 @@ interface DashboardData {
     wellness: {
         pain: number; fatigue: number; sleepiness: number; mood: number; count: number;
     } | null;
+    adherence: {
+        completed: number;
+        planned: number;
+        pct: number;
+        status: 'green' | 'yellow' | 'red';
+    };
+    notes: {
+        id: number;
+        content: string;
+        date: string;
+    }[];
 }
 
 const GENDER_LABEL: Record<string, string> = {
@@ -319,6 +331,178 @@ function EditProfileModal({
     );
 }
 
+// ─── Adherencia ───────────────────────────────────────────────────────────────
+const SEMAPHORE_COLOR = {
+    green: '#2D9E75',
+    yellow: '#E07B54',
+    red: '#E74C3C',
+};
+const SEMAPHORE_LABEL = {
+    green: 'Buena adherencia',
+    yellow: 'Adherencia moderada',
+    red: 'Baja adherencia',
+};
+
+function AdherenceCard({
+    adherence,
+}: { adherence: DashboardData['adherence'] }) {
+    const color = SEMAPHORE_COLOR[adherence.status];
+    const label = SEMAPHORE_LABEL[adherence.status];
+
+    return (
+        <Card>
+            <View style={styles.adherenceRow}>
+                {/* Semáforo */}
+                <View style={styles.semaphore}>
+                    {(['green', 'yellow', 'red'] as const).map(s => (
+                        <View
+                            key={s}
+                            style={[
+                                styles.semaphoreLight,
+                                {
+                                    backgroundColor:
+                                        adherence.status === s
+                                            ? SEMAPHORE_COLOR[s]
+                                            : '#E0E0E0',
+                                    transform: adherence.status === s
+                                        ? [{ scale: 1.15 }]
+                                        : [{ scale: 1 }],
+                                },
+                            ]}
+                        />
+                    ))}
+                </View>
+
+                {/* Info */}
+                <View style={{ flex: 1 }}>
+                    <Text style={[styles.adherenceLabel, { color }]}>{label}</Text>
+                    <Text style={styles.adherenceDetail}>
+                        {adherence.completed} de {adherence.planned} días este mes
+                    </Text>
+                </View>
+
+                {/* Porcentaje */}
+                <Text style={[styles.adherencePct, { color }]}>
+                    {adherence.pct}%
+                </Text>
+            </View>
+
+            {/* Barra de progreso */}
+            <View style={styles.progressBg}>
+                <View
+                    style={[
+                        styles.progressFill,
+                        { width: `${adherence.pct}%`, backgroundColor: color },
+                    ]}
+                />
+            </View>
+            <Text style={[styles.chartNote, { marginTop: 6 }]}>
+                Meta recomendada: 70% de los días hábiles
+            </Text>
+        </Card>
+    );
+}
+
+// ─── Notas del supervisor ─────────────────────────────────────────────────────
+function NotesSection({
+    notes,
+    onAdd,
+    onDelete,
+}: {
+    notes: DashboardData['notes'];
+    onAdd: (content: string) => Promise<void>;
+    onDelete: (date: string) => Promise<void>;
+}) {
+    const [text, setText] = useState('');
+    const [saving, setSaving] = useState(false);
+    const [deletingId, setDeletingId] = useState<string | null>(null);
+
+    const handleAdd = async () => {
+        if (!text.trim()) return;
+        setSaving(true);
+        try {
+            await onAdd(text.trim());
+            setText('');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleDelete = async (date: string) => {
+        setDeletingId(date);
+        try {
+            await onDelete(date);
+        } finally {
+            setDeletingId(null);
+        }
+    };
+
+    return (
+        <View>
+            {/* Input nueva nota */}
+            <Card style={{ marginBottom: 10 }}>
+                <TextInput
+                    style={styles.noteInput}
+                    placeholder="Añadir observación (ej: tuvo náuseas, faltó por revisión...)"
+                    placeholderTextColor="#aaa"
+                    value={text}
+                    onChangeText={setText}
+                    multiline
+                    numberOfLines={3}
+                    textAlignVertical="top"
+                />
+                <Pressable
+                    style={({ pressed }) => [
+                        styles.noteAddBtn,
+                        (!text.trim() || saving) && styles.noteAddBtnDisabled,
+                        pressed && { opacity: 0.8 },
+                    ]}
+                    onPress={handleAdd}
+                    disabled={!text.trim() || saving}
+                >
+                    {saving
+                        ? <ActivityIndicator size="small" color="#fff" />
+                        : <>
+                            <MaterialIcons name="add" size={18} color="#fff" />
+                            <Text style={styles.noteAddBtnText}>Añadir nota</Text>
+                        </>
+                    }
+                </Pressable>
+            </Card>
+
+            {/* Lista de notas */}
+            {notes.length === 0 ? (
+                <Card>
+                    <Text style={styles.emptyText}>Sin observaciones registradas</Text>
+                </Card>
+            ) : (
+                notes.map(note => (
+                    <Card key={note.date} style={styles.noteCard}>
+                        <View style={styles.noteHeader}>
+                            <Text style={styles.noteDate}>
+                                {new Date(note.date).toLocaleDateString('es-ES', {
+                                    day: '2-digit', month: 'short', year: 'numeric',
+                                    hour: '2-digit', minute: '2-digit',
+                                })}
+                            </Text>
+                            <Pressable
+                                onPress={() => handleDelete(note.date)}
+                                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                            >
+                                {deletingId === note.date
+                                    ? <ActivityIndicator size="small" color="#E74C3C" />
+                                    : <MaterialIcons name="delete-outline" size={18} color="#E74C3C" />
+                                }
+                            </Pressable>
+                        </View>
+                        <Text style={styles.noteContent}>{note.content}</Text>
+                    </Card>
+                ))
+            )}
+        </View>
+    );
+}
+
 // ─── pantalla principal ──────────────────────────────────────────────────────
 
 export default function ParentalDashboard() {
@@ -326,12 +510,13 @@ export default function ParentalDashboard() {
     const [data, setData] = useState<DashboardData | null>(null);
     const [loading, setLoading] = useState(true);
     const [showEdit, setShowEdit] = useState(false);
-
+    const [userId, setUserId] = useState<number>(0);
     useEffect(() => { loadDashboard(); }, []);
 
     const loadDashboard = async () => {
         try {
             setLoading(true);
+            const token = await authService.getAccessToken();
             const d = await clinicalProfileService.getDashboard();
             setData(d);
         } catch (e) {
@@ -456,6 +641,28 @@ export default function ParentalDashboard() {
                         ? <WellnessCards wellness={wellness} />
                         : <Card><Text style={styles.emptyText}>Sin datos de bienestar</Text></Card>
                     }
+                </View>
+
+                {/* Adherencia */}
+                <View style={styles.section}>
+                    <SectionTitle icon="event-available" label="Adherencia al programa — este mes" />
+                    <AdherenceCard adherence={data.adherence} />
+                </View>
+
+                {/* Notas */}
+                <View style={styles.section}>
+                    <SectionTitle icon="note-alt" label="Notas del supervisor" />
+                    <NotesSection
+                        notes={data.notes}
+                        onAdd={async (content) => {
+                            await clinicalProfileService.addNote(content);
+                            await loadDashboard();
+                        }}
+                        onDelete={async (date) => {
+                            await clinicalProfileService.deleteNote(date);
+                            await loadDashboard();
+                        }}
+                    />
                 </View>
 
                 <View style={{ height: 40 }} />
@@ -635,4 +842,41 @@ const styles = StyleSheet.create({
     genderBtnActive: { borderColor: '#6B5B95', backgroundColor: '#F0EDFF' },
     genderBtnText: { fontSize: 13, color: '#888' },
     genderBtnTextActive: { color: '#6B5B95', fontWeight: '600' },
+
+    // adherencia
+    adherenceRow: {
+        flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12,
+    },
+    semaphore: {
+        flexDirection: 'column', gap: 4, alignItems: 'center',
+        backgroundColor: '#222', borderRadius: 12, padding: 6,
+    },
+    semaphoreLight: {
+        width: 16, height: 16, borderRadius: 8,
+    },
+    adherenceLabel: { fontSize: 14, fontWeight: '500' },
+    adherenceDetail: { fontSize: 12, color: '#888', marginTop: 2 },
+    adherencePct: { fontSize: 26, fontWeight: '500' },
+
+    // notas
+    noteInput: {
+        fontSize: 14, color: '#2D3E50',
+        minHeight: 70, marginBottom: 10,
+        paddingTop: 4,
+    },
+    noteAddBtn: {
+        flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+        gap: 6, backgroundColor: '#6B5B95', borderRadius: 10,
+        paddingVertical: 10, paddingHorizontal: 16,
+    },
+    noteAddBtnDisabled: { backgroundColor: '#C4B8E8' },
+    noteAddBtnText: { fontSize: 14, fontWeight: '600', color: '#fff' },
+    noteCard: { marginBottom: 8 },
+    noteHeader: {
+        flexDirection: 'row', justifyContent: 'space-between',
+        alignItems: 'center', marginBottom: 6,
+    },
+    noteDate: { fontSize: 11, color: '#aaa' },
+    noteContent: { fontSize: 14, color: '#2D3E50', lineHeight: 20 },
+
 });

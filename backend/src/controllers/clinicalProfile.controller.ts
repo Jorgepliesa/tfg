@@ -1,6 +1,9 @@
 import {
     Controller, Get, Post, Patch, Body,
     Req, UseGuards, Query,
+    Delete,
+    Param,
+    BadRequestException,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags, ApiResponse, ApiQuery } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../utils/jwt-auth.guard';
@@ -33,20 +36,38 @@ export class ClinicalProfileController {
     @Get('dashboard')
     async getDashboard(@Req() req: Request) {
         const userId = req.user!.id;
-        const [profile, stats, steps, sessions, wellness] = await Promise.all([
+        const [profile, stats, steps, sessions, wellness, adherence, notes] = await Promise.all([
             this.service.getProfile(userId),
             this.service.getDashboardStats(userId),
             this.service.getRecentSteps(userId, 14),
             this.service.getSessionsByCategory(userId),
             this.service.getWellnessAverage(userId),
+            this.service.getAdherence(userId),
+            this.service.getNotes(userId),
         ]);
 
-        return { profile, stats, steps, sessions, wellness };
+        return { profile, stats, steps, sessions, wellness, adherence, notes };
     }
 
     @Get('steps')
     @ApiQuery({ name: 'days', required: false, type: Number })
     async getSteps(@Req() req: Request, @Query('days') days?: number) {
         return this.service.getRecentSteps(req.user!.id, days ?? 14);
+    }
+
+    @Get('notes')
+    async getNotes(@Req() req: Request) {
+        return this.service.getNotes(req.user!.id);
+    }
+
+    @Post('notes')
+    async addNote(@Req() req: Request, @Body('content') content: string) {
+        if (!content?.trim()) throw new BadRequestException('Content is required');
+        return this.service.addNote(req.user!.id, content.trim());
+    }
+
+    @Delete('notes/:date')
+    async deleteNote(@Req() req: Request, @Param('date') date: string) {
+        return this.service.deleteNote(req.user!.id, date);
     }
 }

@@ -75,12 +75,14 @@ async function bootstrap() {
     const hasRepository = dataSource.getRepository(Has);
     const clinicalProfileRepository = dataSource.getRepository(ClinicalProfile);
 
+    const USUARIO = 821011;
+
     // Hash de la contraseña
     const hashedPassword = await bcrypt.hash('1234', 10);
 
     // Verificar si el usuario ya existe
     const existingUser = await userRepository.findOne({
-      where: { id: 821011 },
+      where: { id: USUARIO },
       relations: ['avatarEntity', 'steps'] // Cargar relaciones para eliminar dependencias
     });
 
@@ -115,22 +117,13 @@ async function bootstrap() {
     const savedAvatar = await avatarRepository.save(avatar);
 
     // Crear los datos del perfil clínico
-    const clinicalProfile = clinicalProfileRepository.create({
-      age: 10,
-      gender: Gender.MALE,
-      height: 150,
-      weight: 50,
-      birthDate: new Date('2000-01-01'),
-      diagnosis: "Diabetes",
-      treatmentEndDate: new Date('2025-01-01'),
-      hospital: 'Hospital General',
-    });
+    const clinicalProfile = clinicalProfileRepository.create();
 
     const savedClinicalProfile = await clinicalProfileRepository.save(clinicalProfile);
 
     // Crear usuario con referencia al avatar
     const user = userRepository.create({
-      id: 821011,
+      id: USUARIO,
       password: hashedPassword,
       streak: 0,
       avatar: savedAvatar.id, // FK al avatar,
@@ -213,7 +206,7 @@ async function bootstrap() {
           console.log('ℹ️  El reto cooperativo de prueba ya existía');
         }
     */
-    console.log('✅ Usuario creado exitosamente con ID 821011');
+    console.log('✅ Usuario creado exitosamente con ID ', USUARIO);
 
   } catch (error) {
     console.error('❌ Error al crear usuario:', error);

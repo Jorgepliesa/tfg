@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Between } from 'typeorm';
+import { Repository, Between, MoreThan } from 'typeorm';
 import { ClinicalProfile } from '../entities/ClinicalProfile';
 import { Session } from '../entities/Session';
 import { Steps } from '../entities/Steps';
@@ -8,6 +8,7 @@ import { WellnessTest } from '../entities/WellnessTest';
 import { Execute } from '../entities/Execute';
 import { UserAccount } from '../entities/UserAccount';
 import { ClinicalProfileCreateDto, ClinicalProfileUpdateDto } from '../dtos/clinicalProfile.dto';
+import { SupervisorNote } from '../entities/SupervisorNote';
 
 @Injectable()
 export class ClinicalProfileService {
@@ -24,6 +25,8 @@ export class ClinicalProfileService {
         private executeRepository: Repository<Execute>,
         @InjectRepository(UserAccount)
         private userRepository: Repository<UserAccount>,
+        @InjectRepository(SupervisorNote)
+        private noteRepository: Repository<SupervisorNote>,
     ) { }
 
     async getProfile(userId: number): Promise<ClinicalProfile | null> {
@@ -71,35 +74,33 @@ export class ClinicalProfileService {
         const from = new Date();
         from.setDate(from.getDate() - 30);
 
-        const sessions = await this.sessionRepository.find({
-            where: { userId, date: Between(from, new Date()) },
-        });
+        const rows = await this.executeRepository
+            .createQueryBuilder('e')
+            .innerJoin('exercise', 'ex', 'ex.name = e.exercise')
+            .innerJoin('session', 's',
+                's.date = e.session AND s.user_id = e.user_id')
+            .where('s.user_id = :userId', { userId })
+            .andWhere('s.date >= :from', { from })
+            .select('ex.category', 'category')
+            .addSelect('COUNT(DISTINCT s.date)', 'count')
+            .groupBy('ex.category')
+            .getRawMany();
 
-        // Contar por rutina (podría enriquecerse con categoría si se joinea con Exercise)
-        const total = sessions.length;
-        const completed = sessions.filter(s => s.duration > 0).length;
-
-        // Contar ejercicios ejecutados por categoría en estas sesiones
         const categoryCount: Record<string, number> = {
             aerobic: 0, strength: 0, flexibility: 0, balance: 0,
         };
-
-        for (const session of sessions) {
-            const executes = await this.executeRepository
-                .createQueryBuilder('e')
-                .innerJoin('exercise', 'ex', 'ex.name = e.exercise')
-                .where('e.session = :date', { date: session.date })
-                .andWhere('e.user_id = :userId', { userId })
-                .select(['ex.category AS category', 'COUNT(*) AS count'])
-                .groupBy('ex.category')
-                .getRawMany();
-
-            for (const row of executes) {
-                if (categoryCount[row.category] !== undefined) {
-                    categoryCount[row.category] += parseInt(row.count);
-                }
+        for (const row of rows) {
+            if (row.category in categoryCount) {
+                categoryCount[row.category] = parseInt(row.count);
             }
         }
+
+        const total = await this.sessionRepository.count({
+            where: { userId, date: Between(from, new Date()) },
+        });
+        const completed = await this.sessionRepository.count({
+            where: { userId, date: Between(from, new Date()), duration: MoreThan(0) },
+        });
 
         return { total, completed, categoryCount };
     }
@@ -161,5 +162,56 @@ export class ClinicalProfileService {
             where: { userId },
         });
         return count;
+    }
+
+    // ─── Adherencia ───────────────────────────────────────────────────────────────
+    async getAdherence(userId: number) {
+        const now = new Date();
+        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+        // Días hábiles transcurridos este mes (L-V)
+        let plannedDays = 0;
+        const cursor = new Date(monthStart);
+        while (cursor <= now) {
+            const dow = cursor.getDay();
+            if (dow >= 1 && dow <= 5) plannedDays++;
+            cursor.setDate(cursor.getDate() + 1);
+        }
+
+        // Sesiones completadas (duration > 0)
+        const completed = await this.sessionRepository.count({
+            where: {
+                userId,
+                date: Between(monthStart, now),
+                duration: MoreThan(0),
+            },
+        });
+
+        // Cap: no puede superar los días planificados
+        const capped = Math.min(completed, plannedDays);
+        const pct = plannedDays > 0 ? Math.round((capped / plannedDays) * 100) : 0;
+
+        const status: 'green' | 'yellow' | 'red' =
+            pct >= 70 ? 'green' : pct >= 40 ? 'yellow' : 'red';
+
+        return { completed, planned: plannedDays, pct, status };
+    }
+
+    // ─── Notas ────────────────────────────────────────────────────────────────────
+    async getNotes(userId: number): Promise<SupervisorNote[]> {
+        return this.noteRepository.find({
+            where: { clinicalProfile: userId },
+            order: { date: 'DESC' },
+            take: 20,
+        });
+    }
+
+    async addNote(userId: number, content: string): Promise<SupervisorNote> {
+        const note = this.noteRepository.create({ clinicalProfile: userId, content, date: new Date() });
+        return this.noteRepository.save(note);
+    }
+
+    async deleteNote(userId: number, date: string): Promise<void> {
+        await this.noteRepository.delete({ clinicalProfile: userId, date: new Date(date) });
     }
 }
