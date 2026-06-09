@@ -17,7 +17,9 @@
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "test:e2e": "jest --config ./test/jest-e2e.json"
+    "test:e2e": "jest --config ./test/jest-e2e.json",
+    "seed": "ts-node -r tsconfig-paths/register ./node_modules/typeorm-extension/bin/cli.cjs seed:run -d src/database/dataSource.ts",
+    "seed:users": "ts-node -r tsconfig-paths/register src/scripts/seed-users.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
@@ -38,7 +40,8 @@
     "pg": "^8.19.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
-    "typeorm": "^0.3.28"
+    "typeorm": "^0.3.28",
+    "typeorm-extension": "^3.9.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",

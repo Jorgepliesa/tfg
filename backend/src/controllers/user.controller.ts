@@ -9,12 +9,12 @@ import { UserService } from "../services/user.service";
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth('JWT-auth')
 export class UserController {
-    constructor(private userService: UserService) {}
+    constructor(private userService: UserService) { }
 
     @Get('profile')
     @ApiOperation({ summary: 'Get user profile with today steps' })
-    @ApiResponse({ 
-        status: 200, 
+    @ApiResponse({
+        status: 200,
         description: 'User profile retrieved',
         schema: { example: { id: 821011, streak: 7 } }
     })
@@ -27,10 +27,10 @@ export class UserController {
 
     @Get('fp')
     @ApiOperation({ summary: 'Get current fitness points of the avatar' })
-    @ApiResponse({ 
-        status: 200, 
+    @ApiResponse({
+        status: 200,
         description: 'Fitness Points retrieved successfully',
-        schema: { 
+        schema: {
             example: { avatar: 1, fp: 100 }
         }
     })
@@ -44,8 +44,8 @@ export class UserController {
 
     @Get('today-steps')
     @ApiOperation({ summary: 'Get today\'s steps for the user' })
-    @ApiResponse({ 
-        status: 200, 
+    @ApiResponse({
+        status: 200,
         description: 'Today\'s steps retrieved successfully',
         schema: { example: { id: 821011, todaySteps: 5000 } }
     })
@@ -55,5 +55,10 @@ export class UserController {
         const userId = req.user!.id;
         const todaySteps = await this.userService.getTodaySteps(userId);
         return { userId, todaySteps };
+    }
+
+    @Get('me')
+    async getMe(@Req() req: Request) {
+        return { id: req.user!.id };
     }
 }

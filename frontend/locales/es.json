@@ -25,6 +25,7 @@
   },
   "wellnessTest": {
     "header_title": "Pre-ejercicio",
+    "header_title_end": "Post-ejercicio",
     "questions": {
       "pain": "¿Cómo te sientes de dolorido?",
       "fatigue": "¿Cuánta fatiga sientes?",
@@ -48,4 +49,3 @@
     }
   }
 }
-

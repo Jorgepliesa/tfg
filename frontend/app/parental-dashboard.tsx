@@ -9,6 +9,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useEffect, useState } from 'react';
 import { clinicalProfileService } from '@/services/clinicalProfileService';
 import { authService } from '@/services/authService';
+import { exportDashboardPDF } from '@/services/pdfExportService';
+import api from '@/services/api';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CONTENT_WIDTH = Math.min(SCREEN_WIDTH, 480); // cap en tablet
@@ -511,14 +513,18 @@ export default function ParentalDashboard() {
     const [loading, setLoading] = useState(true);
     const [showEdit, setShowEdit] = useState(false);
     const [userId, setUserId] = useState<number>(0);
+    const [exporting, setExporting] = useState(false);
     useEffect(() => { loadDashboard(); }, []);
 
     const loadDashboard = async () => {
         try {
             setLoading(true);
-            const token = await authService.getAccessToken();
-            const d = await clinicalProfileService.getDashboard();
+            const [d, me] = await Promise.all([
+                clinicalProfileService.getDashboard(),
+                api.get('/user/me'),
+            ]);
             setData(d);
+            setUserId(me.data.id);
         } catch (e) {
             Alert.alert('Error', 'No se pudo cargar el dashboard');
         } finally {
@@ -529,6 +535,19 @@ export default function ParentalDashboard() {
     const handleSaveProfile = async (formData: any) => {
         await clinicalProfileService.updateProfile(formData);
         await loadDashboard();
+    };
+
+    const handleExport = async () => {
+        if (!data) return;
+        setExporting(true);
+        try {
+            await exportDashboardPDF(data, userId);
+        } catch (e) {
+            console.error('PDF error:', e);
+            Alert.alert('Error', 'No se pudo generar el PDF');
+        } finally {
+            setExporting(false);
+        }
     };
 
     if (loading) return (
@@ -555,6 +574,25 @@ export default function ParentalDashboard() {
                 <Text style={styles.headerTitle}>Panel parental</Text>
                 <View style={{ width: 44 }} />
             </View>
+
+            <Pressable
+                style={({ pressed }) => [
+                    styles.exportBtn,
+                    pressed && { opacity: 0.8 },
+                    exporting && { opacity: 0.6 },
+                ]}
+                onPress={handleExport}
+                disabled={exporting || !data}
+            >
+                {exporting ? (
+                    <ActivityIndicator size="small" color="#6B5B95" />
+                ) : (
+                    <>
+                        <MaterialIcons name="picture-as-pdf" size={18} color="#6B5B95" />
+                        <Text style={styles.exportBtnText}>Exportar informe PDF</Text>
+                    </>
+                )}
+            </Pressable>
 
             <ScrollView
                 style={styles.scroll}
@@ -879,4 +917,25 @@ const styles = StyleSheet.create({
     noteDate: { fontSize: 11, color: '#aaa' },
     noteContent: { fontSize: 14, color: '#2D3E50', lineHeight: 20 },
 
+    exportBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 8,
+        marginHorizontal: 16,
+        marginTop: 6,
+        marginBottom: 2,
+        backgroundColor: '#F0EDFF',
+        borderRadius: 12,
+        paddingVertical: 10,
+        paddingHorizontal: 16,
+        borderWidth: 0.5,
+        borderColor: '#C4B8E8',
+        minHeight: 44,
+    },
+    exportBtnText: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: '#6B5B95',
+    },
 });

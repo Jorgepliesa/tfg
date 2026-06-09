@@ -1,4 +1,4 @@
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { View, Text, StyleSheet, Pressable, ScrollView, Platform, Alert, ActivityIndicator } from 'react-native';
 import { MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -15,6 +15,7 @@ const CATEGORIES: CategoryType[] = ['pain', 'fatigue', 'sleepiness', 'mood'];
 
 export default function WellnessTest() {
     const router = useRouter();
+    const { type } = useLocalSearchParams();
     const { t } = useTranslation();
     const { routineName, setInitialTest, sessionDate, setSessionDuration } = useSession();
     const [selectedRating, setSelectedRating] = useState<number | null>(null);
@@ -26,9 +27,9 @@ export default function WellnessTest() {
         sleepiness: null,
         mood: null,
     });
-    
+
     const currentCategory = CATEGORIES[categoryIndex] as CategoryType;
-    
+
     const handleRatingChange = (rating: number) => {
         setSelectedRating(rating);
         setRatings({ ...ratings, [currentCategory]: rating });
@@ -36,9 +37,9 @@ export default function WellnessTest() {
 
     const handleNext = async () => {
         if (selectedRating === null) return;
-        
+
         const nextIndex = categoryIndex + 1;
-        
+
         if (nextIndex < CATEGORIES.length) {
             // Ir a la siguiente categoría
             setCategoryIndex(nextIndex);
@@ -52,7 +53,7 @@ export default function WellnessTest() {
     const saveInitialTest = async () => {
         try {
             setLoading(true);
-            
+
             const sessionResponse = await sessionService.startSession({
                 routine: routineName || 'Unknown',
                 isCoop: false,
@@ -65,7 +66,7 @@ export default function WellnessTest() {
                 fatigue: ratings.fatigue || 3,
                 type: 'initial',
             });
-            
+
             // Guardar en contexto
             setInitialTest({
                 pain: ratings.pain || 3,
@@ -73,9 +74,13 @@ export default function WellnessTest() {
                 mood: ratings.mood || 3,
                 fatigue: ratings.fatigue || 3,
             });
-            
+
             // Ir a ejercicios
-            router.push('/(tabs)/routines/exercises/exercises');
+            if (type === 'final') {
+                router.push('/(tabs)/home');
+            } else {
+                router.push('/(tabs)/routines/exercises/exercises');
+            }
         } catch (error) {
             console.error('Error saving initial test:', error);
             Alert.alert(t('wellnessTest.error.title'), t('wellnessTest.error.message'));
@@ -87,7 +92,7 @@ export default function WellnessTest() {
     return (
         <SafeAreaView style={styles.safeContainer}>
             <View style={styles.header}>
-                <Pressable 
+                <Pressable
                     style={({ pressed }) => [
                         styles.backButton,
                         pressed && { opacity: 0.6 }
@@ -96,13 +101,15 @@ export default function WellnessTest() {
                 >
                     <MaterialIcons name="arrow-circle-left" size={28} color="#6B5B95" />
                 </Pressable>
-                <Text style={styles.headerTitle}>{t('wellnessTest.header_title')}</Text>
+                <Text style={styles.headerTitle}>{type === 'final'
+                    ? t('wellnessTest.header_title_end')
+                    : t('wellnessTest.header_title')}</Text>
                 <View style={styles.headerSpacer} />
             </View>
 
             <Text style={styles.mainTitle}>{t(`wellnessTest.questions.${currentCategory}`)}</Text>
 
-            <ScrollView 
+            <ScrollView
                 style={styles.container}
                 contentContainerStyle={styles.scrollContent}
                 showsVerticalScrollIndicator={false}
@@ -195,10 +202,10 @@ export default function WellnessTest() {
                     </View>
                 </View>
             </ScrollView>
-            
+
             {/* Botón Siguiente */}
             {selectedRating !== null && (
-                <Pressable 
+                <Pressable
                     style={({ pressed }) => [
                         styles.nextButton,
                         pressed && styles.nextButtonPressed,
@@ -212,16 +219,16 @@ export default function WellnessTest() {
                     ) : (
                         <>
                             <Text style={styles.nextButtonText}>
-                                {categoryIndex === CATEGORIES.length - 1 
-                                    ? t('wellnessTest.buttons.start') 
+                                {categoryIndex === CATEGORIES.length - 1
+                                    ? t('wellnessTest.buttons.start')
                                     : t('wellnessTest.buttons.next')}
-                            </Text>                    
+                            </Text>
                             <MaterialIcons name="arrow-forward" size={24} color="#fff" />
                         </>
                     )}
                 </Pressable>
             )}
-        </SafeAreaView> 
+        </SafeAreaView>
     );
 }
 
