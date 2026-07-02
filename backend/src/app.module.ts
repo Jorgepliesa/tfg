@@ -40,6 +40,10 @@ import { ClinicalProfile } from './entities/ClinicalProfile';
 import { ClinicalProfileModule } from './modules/clinicalProfile.module';
 import { SupervisorNote } from './entities/SupervisorNote';
 
+// Importar entidades omop
+import { OmopMeasurement } from './entities/omop/OmopMeasurement';
+import { OmopDailySummary } from './entities/omop/OmopDailySummary';
+
 @Module({
   imports: [
     // Configuración de variables de entorno
@@ -88,6 +92,15 @@ import { SupervisorNote } from './entities/SupervisorNote';
       ],
       synchronize: false, // ¡IMPORTANTE! false en producción para no perder datos TODO
       logging: process.env.NODE_ENV === 'development',
+    }),
+    // app.module.ts
+    TypeOrmModule.forRoot({
+      name: 'omop',  // nombre de la conexión
+      type: 'postgres',
+      url: process.env.OMOP_DATABASE_URL || process.env.DATABASE_URL,  // misma BD o externa
+      schema: 'omop_modified',  // solo lees de este schema
+      synchronize: false,        // nunca — no es tu esquema
+      entities: [OmopMeasurement, OmopDailySummary],
     }),
 
     // Módulos de funcionalidad

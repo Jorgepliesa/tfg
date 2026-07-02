@@ -15,7 +15,7 @@ export class ExecuteService {
     private sessionRepository: Repository<Session>,
     @InjectRepository(Exercise)
     private exerciseRepository: Repository<Exercise>,
-  ) {}
+  ) { }
 
   /**
    * Create/save an executed exercise
@@ -77,6 +77,7 @@ export class ExecuteService {
       userId: userId,
       exercise: createExecuteDto.exercise,
       numRepsDone: createExecuteDto.numRepsDone,
+      numSeriesDone: createExecuteDto.numSeriesDone,
       tInitial: tInitial,
       tFinal: tFinal,
     });
@@ -175,6 +176,7 @@ export class ExecuteService {
       userId: execute.userId,
       exercise: execute.exercise,
       numRepsDone: execute.numRepsDone,
+      numSeriesDone: execute.numSeriesDone,
       tInitial: execute.tInitial,
       tFinal: execute.tFinal,
     };

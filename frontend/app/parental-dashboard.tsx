@@ -8,7 +8,6 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useEffect, useState } from 'react';
 import { clinicalProfileService } from '@/services/clinicalProfileService';
-import { authService } from '@/services/authService';
 import { exportDashboardPDF } from '@/services/pdfExportService';
 import api from '@/services/api';
 
@@ -21,7 +20,7 @@ interface DashboardData {
         age: number; gender: string; height: number; weight: number;
         birthDate: string; diagnosis: string; treatmentEndDate: string; hospital: string;
     } | null;
-    stats: { streak: number; todaySteps: number; sessionsThisMonth: number; };
+    stats: { streak: number; todaySteps: number; sessionsThisMonth: number; fp: number; };
     steps: { date: string; numSteps: number; isReached: boolean; }[];
     sessions: {
         total: number; completed: number;
@@ -95,6 +94,8 @@ function MetricCard({
     );
 }
 
+const CHART_HEIGHT = 70; // ALTURA FIJA DEL area de barras
+
 function StepsChart({ steps }: { steps: DashboardData['steps'] }) {
     if (!steps.length) return (
         <Card><Text style={styles.emptyText}>Sin datos de pasos</Text></Card>
@@ -105,7 +106,7 @@ function StepsChart({ steps }: { steps: DashboardData['steps'] }) {
 
     return (
         <Card>
-            <View style={styles.chartContainer}>
+            <View style={[styles.chartContainer, { height: CHART_HEIGHT + 20 }]}>
                 {steps.map((s, i) => {
                     const pct = s.numSteps / max;
                     const dayIdx = new Date(s.date).getDay();
@@ -135,26 +136,30 @@ function SessionsChart({ sessions }: { sessions: DashboardData['sessions'] }) {
     const maxVal = Math.max(...Object.values(sessions.categoryCount), 1);
     return (
         <Card>
-            {Object.entries(sessions.categoryCount).map(([cat, count]) => (
-                <View key={cat} style={styles.progressRow}>
-                    <View style={styles.progressRowHeader}>
-                        <Text style={styles.progressLabel}>{CATEGORY_LABEL[cat] ?? cat}</Text>
-                        <Text style={[styles.progressCount, { color: CATEGORY_COLOR[cat] }]}>
-                            {count} sesiones
-                        </Text>
+            {Object.entries(sessions.categoryCount).map(([cat, count]) => {
+                const pct = count / maxVal;
+                return (
+                    <View key={cat} style={styles.progressRow}>
+                        <View style={styles.progressRowHeader}>
+                            <Text style={styles.progressLabel}>{CATEGORY_LABEL[cat] ?? cat}</Text>
+                            <Text style={[styles.progressCount, { color: CATEGORY_COLOR[cat] }]}>
+                                {count} sesiones
+                            </Text>
+                        </View>
+                        <View style={styles.progressBg}>
+                            <View style={[
+                                styles.progressFill,
+                                {
+                                    flex: pct,
+                                    backgroundColor: CATEGORY_COLOR[cat],
+                                    opacity: count === 0 ? 0.2 : 1,
+                                },
+                            ]} />
+                            <View style={{ flex: 1 - pct }} />
+                        </View>
                     </View>
-                    <View style={styles.progressBg}>
-                        <View style={[
-                            styles.progressFill,
-                            {
-                                width: `${(count / maxVal) * 100}%`,
-                                backgroundColor: CATEGORY_COLOR[cat],
-                                opacity: count === 0 ? 0.2 : 1,
-                            },
-                        ]} />
-                    </View>
-                </View>
-            ))}
+                );
+            })}
             <Text style={styles.chartNote}>
                 Total mes: {sessions.total} sesiones · {sessions.completed} completadas
             </Text>
@@ -560,7 +565,7 @@ export default function ParentalDashboard() {
 
     if (!data) return null;
 
-    const { profile, stats, steps, sessions, wellness } = data;
+    const { profile, stats, steps, sessions, wellness, adherence } = data;
 
     return (
         <SafeAreaView style={styles.safe}>
@@ -607,7 +612,7 @@ export default function ParentalDashboard() {
                         </Text>
                     </View>
                     <View style={{ flex: 1 }}>
-                        <Text style={styles.profileName}>ID {/* puedes poner nombre si lo tienes */}</Text>
+                        <Text style={styles.profileName}>Usuario #{userId}</Text>
                         <Text style={styles.profileSub}>
                             {profile ? `${profile.age} años · ${GENDER_LABEL[profile.gender] ?? profile.gender}` : 'Sin perfil clínico'}
                         </Text>
@@ -624,7 +629,7 @@ export default function ParentalDashboard() {
                     <MetricCard icon="local-fire-department" label="Racha" value={`${stats.streak} días`} valueColor="#E07B54" />
                     <MetricCard icon="directions-walk" label="Pasos hoy" value={stats.todaySteps.toLocaleString()} />
                     <MetricCard icon="fitness-center" label="Sesiones mes" value={`${stats.sessionsThisMonth}`} />
-                    <MetricCard icon="stars" label="FP totales" value="—" valueColor="#534AB7" />
+                    <MetricCard icon="stars" label="FP totales" value={stats.fp.toLocaleString()} valueColor="#534AB7" />
                 </View>
 
                 {/* Datos clínicos */}
@@ -684,12 +689,16 @@ export default function ParentalDashboard() {
                 {/* Adherencia */}
                 <View style={styles.section}>
                     <SectionTitle icon="event-available" label="Adherencia al programa — este mes" />
-                    <AdherenceCard adherence={data.adherence} />
+                    {adherence ? (
+                        <AdherenceCard adherence={adherence} />
+                    ) : (
+                        <Card><Text style={styles.emptyText}>Sin datos de adherencia</Text></Card>
+                    )}
                 </View>
 
                 {/* Notas */}
                 <View style={styles.section}>
-                    <SectionTitle icon="note-alt" label="Notas del supervisor" />
+                    <SectionTitle icon="notes" label="Notas del supervisor" />
                     <NotesSection
                         notes={data.notes}
                         onAdd={async (content) => {
@@ -804,8 +813,17 @@ const styles = StyleSheet.create({
     barTrack: {
         flex: 1, width: '100%',
         justifyContent: 'flex-end',
+        position: 'relative',
     },
-    barFill: { width: '100%', borderRadius: 3, minHeight: 3 },
+    barFill: {
+        width: '100%',
+        borderRadius: 3,
+        minHeight: 3,
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+    },
     barLabel: { fontSize: 9, color: '#aaa' },
     chartFooter: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 },
     chartNote: { fontSize: 11, color: '#aaa' },

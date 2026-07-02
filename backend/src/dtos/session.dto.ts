@@ -30,6 +30,9 @@ export class ExecuteResponseDto {
   @ApiProperty({ example: 20 })
   numRepsDone: number;
 
+  @ApiProperty({ example: 3 })
+  numSeriesDone: number;
+
   @ApiProperty({
     type: 'string',
     format: 'date-time',

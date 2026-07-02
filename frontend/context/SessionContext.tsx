@@ -21,6 +21,7 @@ export interface WellnessTestData {
 export interface ExecutedExercise {
   exercise: string;
   numRepsDone: number;
+  numSeriesDone: number;
   tInitial: Date;
   tFinal: Date;
 }
@@ -32,18 +33,18 @@ export interface SessionContextType {
   category: string | null;
   exercises: ExerciseInRoutine[];
   currentExerciseIndex: number;
-  
+
   // Tests de bienestar
   initialTest: WellnessTestData | null;
   finalTest: WellnessTestData | null;
-  
+
   // Ejercicios ejecutados
   executedExercises: ExecutedExercise[];
-  
+
   // Puntos ganados
   fpGained: number;
   sessionDuration: number; // en segundos
-  
+
   // Acciones
   initSession: (category: string, routineName: string, exercises: ExerciseInRoutine[]) => void;
   setInitialTest: (test: WellnessTestData) => void;

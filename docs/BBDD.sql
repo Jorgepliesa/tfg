@@ -176,6 +176,7 @@ CREATE TABLE execute (
     user_id INT,
     exercise VARCHAR(255),
     num_reps_done INT NOT NULL,
+    num_series_done INT NOT NULL,
     t_initial TIMESTAMPTZ NOT NULL,
     t_final TIMESTAMPTZ NOT NULL,
     PRIMARY KEY (session, user_id, exercise),

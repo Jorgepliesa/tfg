@@ -15,7 +15,7 @@ export class SessionService {
         private wellnessTestRepository: Repository<WellnessTest>,
         @InjectRepository(Execute)
         private executeRepository: Repository<Execute>,
-    ) {}
+    ) { }
 
     async canStartSession(userId: number): Promise<boolean> {
         const today = new Date();
@@ -41,7 +41,7 @@ export class SessionService {
         }*/
 
         const now = new Date();
-        
+
         const session = this.sessionRepository.create({
             date: now,
             userId: userId,
@@ -145,6 +145,7 @@ export class SessionService {
         return {
             exercise: execute.exercise,
             numRepsDone: execute.numRepsDone,
+            numSeriesDone: execute.numSeriesDone,
             tInitial: execute.tInitial,
             tFinal: execute.tFinal,
         };

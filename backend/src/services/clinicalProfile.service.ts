@@ -152,6 +152,7 @@ export class ClinicalProfileService {
             streak: user.streak,
             todaySteps: todaySteps?.numSteps ?? 0,
             sessionsThisMonth,
+            fp: user.avatarEntity?.fp ?? 0,
         };
     }
 

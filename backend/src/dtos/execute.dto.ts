@@ -24,6 +24,18 @@ export class ExecuteCreateDto {
   numRepsDone: number;
 
   @ApiProperty({
+    example: 3,
+    description: 'Number of series completed',
+    minimum: 1,
+    maximum: 99,
+  })
+  @IsInt()
+  @Min(1)
+  @Max(99)
+  @IsNotEmpty()
+  numSeriesDone: number;
+
+  @ApiProperty({
     type: 'string',
     format: 'date-time',
     example: '2026-04-06T10:00:00Z',
@@ -67,6 +79,9 @@ export class ExecuteResponseDto {
     example: 20,
   })
   numRepsDone: number;
+
+  @ApiProperty({ example: 3 })
+  numSeriesDone: number;
 
   @ApiProperty({
     type: 'string',

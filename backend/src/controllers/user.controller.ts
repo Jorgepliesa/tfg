@@ -58,6 +58,7 @@ export class UserController {
     }
 
     @Get('me')
+    @ApiOperation({ summary: 'Get current user ID' })
     async getMe(@Req() req: Request) {
         return { id: req.user!.id };
     }
