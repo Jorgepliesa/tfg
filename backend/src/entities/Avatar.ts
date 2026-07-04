@@ -37,6 +37,6 @@ export class Avatar {
   @OneToMany(() => Keep, (keep) => keep.avatar)
   keeps: Keep[];
 
-  @OneToOne(() => UserAccount, (userAccount) => userAccount.avatar)
+  @OneToOne(() => UserAccount, (userAccount) => userAccount.avatarEntity)
   userAccount: UserAccount;
 }

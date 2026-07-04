@@ -4,6 +4,18 @@
     "main_title": "What do you want to do today?",
     "error_title": "Error",
     "error_message": "Could not load the recommended routine",
+    "recommending": "Finding the perfect routine for you...",
+    "questions": {
+      "equipment_title": "Do you have equipment on hand?",
+      "equipment_subtitle": "Weights, resistance bands, mat...",
+      "coop_title": "Solo or with company?",
+      "coop_subtitle": "Doing it with someone gives you extra points",
+      "coop_bonus": "🎁 +Extra points for doing it accompanied",
+      "yes": "Yes",
+      "no": "No",
+      "solo": "Solo",
+      "accompanied": "Accompanied"
+    },
     "categories": {
       "cardio": {
         "title": "Cardio",

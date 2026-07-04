@@ -134,7 +134,7 @@ export default function Exercises() {
     const goToNext = () => {
         if (currentExerciseIndex >= exercises.length - 1) {
             // Reached the end, go to final test
-            router.push({ pathname: '/(tabs)/routines/wellnessTest', params: { type: 'final' } });
+            router.push({ pathname: '/(tabs)/session/wellnessTest', params: { type: 'final' } });
             return;
         }
         else {

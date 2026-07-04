@@ -16,7 +16,7 @@ import type { Request } from 'express';
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth('JWT-auth')
 export class RoutineController {
-  constructor(private routineService: RoutineService) {}
+  constructor(private routineService: RoutineService) { }
 
   /** No me hace falta saber las categorias
    * GET /routine/categories
@@ -93,6 +93,32 @@ export class RoutineController {
   }
 
   /**
+     * GET /routine/recommend?hasEquipment=true
+     * Recomienda una rutina según material disponible e historial
+     */
+  @Get('recommend')
+  @ApiQuery({
+    name: 'hasEquipment',
+    required: true,
+    type: Boolean,
+    description: 'Si el usuario dispone de material/equipamiento',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Rutina recomendada',
+    schema: {
+      example: { routineName: 'Fuerza Básica', category: 'strength', difficulty: 'easy' },
+    },
+  })
+  async recommendRoutine(
+    @Req() req: Request,
+    @Query('hasEquipment') hasEquipment: string,
+  ): Promise<{ routineName: string; category: string; difficulty: string }> {
+    const hasEquipmentBool = hasEquipment === 'true' || hasEquipment === '1';
+    return this.routineService.recommendRoutine(req.user!.id, hasEquipmentBool);
+  }
+
+  /**
    * GET /routine/:name
    * Get detailed routine (all exercises with reps, series, duration, rest)
    */
@@ -104,5 +130,5 @@ export class RoutineController {
   })
   async getRoutineDetails(@Param('name') name: string): Promise<ExerciseInRoutineDto[]> {
     return this.routineService.getRoutineDetails(name);
-  } 
+  }
 }

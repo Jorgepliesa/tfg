@@ -4,6 +4,18 @@
     "main_title": "¿Qué te apetece hacer hoy?",
     "error_title": "Error",
     "error_message": "No se pudo cargar la rutina recomendada",
+    "recommending": "Buscando la rutina perfecta para ti...",
+    "questions": {
+      "equipment_title": "¿Tienes material a mano?",
+      "equipment_subtitle": "Pesas, bandas elásticas, colchoneta...",
+      "coop_title": "¿Lo harás solo o acompañado?",
+      "coop_subtitle": "Hacerlo acompañado te da puntos extra",
+      "coop_bonus": "🎁 +Puntos extra por hacerlo acompañado",
+      "yes": "Sí",
+      "no": "No",
+      "solo": "Solo",
+      "accompanied": "Acompañado"
+    },
     "categories": {
       "cardio": {
         "title": "Cardio",

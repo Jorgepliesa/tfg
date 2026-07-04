@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Memorial } from '../entities/Memorial';
-import { Has } from '../entities/has';
+import { Has } from '../entities/Has';
 
 @Injectable()
 export class MemorialService {
@@ -11,7 +11,7 @@ export class MemorialService {
         private memorialRepository: Repository<Memorial>,
         @InjectRepository(Has)
         private hasRepository: Repository<Has>,
-    ) {}
+    ) { }
 
     async getMemorialsWithStatus(userId: number, baseUrl: string) {
         const allMemorials = await this.memorialRepository.find({

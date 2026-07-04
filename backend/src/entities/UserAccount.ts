@@ -13,7 +13,7 @@ import { Session } from "./Session";
 import { Steps } from "./Steps";
 import { Avatar } from "./Avatar";
 import { ApiProperty } from "@nestjs/swagger";
-import { Has } from "./has";
+import { Has } from "./Has";
 import { ClinicalProfile } from "./ClinicalProfile";
 
 @Index("user_account_pkey", ["id"], { unique: true })

@@ -33,6 +33,7 @@ export interface SessionContextType {
   category: string | null;
   exercises: ExerciseInRoutine[];
   currentExerciseIndex: number;
+  isCoop: boolean;
 
   // Tests de bienestar
   initialTest: WellnessTestData | null;
@@ -54,6 +55,8 @@ export interface SessionContextType {
   setFpGained: (fp: number) => void;
   setSessionDuration: (duration: number) => void;
   resetSession: () => void;
+  setIsCoop: (isCoop: boolean) => void;
+
 }
 
 const SessionContext = createContext<SessionContextType | undefined>(undefined);
@@ -69,6 +72,7 @@ export const SessionProvider: React.FC<{ children: ReactNode }> = ({ children })
   const [executedExercises, setExecutedExercises] = useState<ExecutedExercise[]>([]);
   const [fpGained, setFpGained] = useState(0);
   const [sessionDuration, setSessionDuration] = useState(0);
+  const [isCoop, setIsCoop] = useState(false);
 
   const initSession = (cat: string, rout: string, exs: ExerciseInRoutine[]) => {
     setSessionDate(new Date());
@@ -97,6 +101,7 @@ export const SessionProvider: React.FC<{ children: ReactNode }> = ({ children })
     setCurrentExerciseIndex(0);
     setFpGained(0);
     setSessionDuration(0);
+    setIsCoop(false);
   };
 
   return (
@@ -120,6 +125,8 @@ export const SessionProvider: React.FC<{ children: ReactNode }> = ({ children })
         setFpGained,
         setSessionDuration,
         resetSession,
+        isCoop,
+        setIsCoop,
       }}
     >
       {children}

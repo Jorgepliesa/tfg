@@ -17,7 +17,7 @@ export default function WellnessTest() {
     const router = useRouter();
     const { type } = useLocalSearchParams();
     const { t } = useTranslation();
-    const { routineName, setInitialTest, sessionDate, setSessionDuration } = useSession();
+    const { routineName, setInitialTest, sessionDate, setSessionDuration, isCoop } = useSession();
     const [selectedRating, setSelectedRating] = useState<number | null>(null);
     const [categoryIndex, setCategoryIndex] = useState(0);
     const [loading, setLoading] = useState(false);
@@ -56,7 +56,7 @@ export default function WellnessTest() {
 
             const sessionResponse = await sessionService.startSession({
                 routine: routineName || 'Unknown',
-                isCoop: false,
+                isCoop,
             });
             // Guardar test inicial
             await wellnessTestService.createTest({
@@ -79,7 +79,7 @@ export default function WellnessTest() {
             if (type === 'final') {
                 router.push('/(tabs)/home');
             } else {
-                router.push('/(tabs)/routines/exercises/exercises');
+                router.push('/(tabs)/session/exercises/exercises');
             }
         } catch (error) {
             console.error('Error saving initial test:', error);

@@ -158,7 +158,7 @@ export class ClinicalProfileService {
 
     // Cromos desbloqueados
     async getMemorialCount(userId: number) {
-        const { Has } = await import('../entities/has.js');
+        const { Has } = await import('../entities/Has.js');
         const count = await this.profileRepository.manager.count('has', {
             where: { userId },
         });

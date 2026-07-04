@@ -5,10 +5,11 @@ import { RoutineController } from '../controllers/routine.controller';
 import { Routine } from '../entities/Routine';
 import { Plan } from '../entities/Plan';
 import { Exercise } from '../entities/Exercise';
+import { Session } from '../entities/Session';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Routine, Plan, Exercise])],
+  imports: [TypeOrmModule.forFeature([Routine, Plan, Exercise, Session])],
   providers: [RoutineService],
   controllers: [RoutineController],
 })
-export class RoutineModule {}
+export class RoutineModule { }

@@ -15,7 +15,7 @@ import { Execute } from '../entities/Execute';
 import { Complete } from '../entities/Complete';
 import { CoopChallenge, CoopChallengeStatus } from '../entities/CoopChallenge';
 import { Memorial } from '../entities/Memorial';
-import { Has } from '../entities/has';
+import { Has } from '../entities/Has';
 import { Audiovisual } from '../entities/Audiovisual';
 import { MuscleGroup } from '../entities/MuscleGroup';
 import { Equipment } from '../entities/Equipment';

@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { Routine } from '../entities/Routine';
 import { Plan } from '../entities/Plan';
 import { Exercise, ExerciseCategory, ExerciseDifficulty } from '../entities/Exercise';
+import { Session } from '../entities/Session';
 import { RoutineDetailsDto, ExerciseInRoutineDto, RoutineCategoryDto, RoutineListDto } from '../dtos/routine.dto';
 
 @Injectable()
@@ -15,9 +16,11 @@ export class RoutineService {
     private planRepository: Repository<Plan>,
     @InjectRepository(Exercise)
     private exerciseRepository: Repository<Exercise>,
-  ) {}
+    @InjectRepository(Session)
+    private sessionRepository: Repository<Session>,
+  ) { }
 
-  
+
   /**
    * Get all available routine categories
    */
@@ -158,7 +161,7 @@ export class RoutineService {
 
     // Fallback: Si no tiene el atributo category en Routine y usamos el viejo diseño
     if (!routineInfo) {
-       routineInfo = await this.routineRepository.createQueryBuilder('routine')
+      routineInfo = await this.routineRepository.createQueryBuilder('routine')
         .innerJoin('routine.plans', 'plan')
         .innerJoin('plan.exerciseEntity', 'exercise')
         .where('exercise.category = :category', { category })
@@ -181,6 +184,81 @@ export class RoutineService {
       routineName: routineInfo.routineName,
       category: routineInfo.category,
       difficulty: routineInfo.difficulty,
+    };
+  }
+
+  /**
+   * Recomienda una rutina según disponibilidad de material e historial reciente:
+   * - Filtra por si la rutina usa o no material (con fallback si no hay coincidencias)
+   * - Evita repetir rutinas hechas en las últimas sesiones
+   * - Rota categoría y dificultad respecto a la última rutina hecha
+   */
+  async recommendRoutine(
+    userId: number,
+    hasEquipment: boolean,
+  ): Promise<{ routineName: string; category: string; difficulty: string }> {
+    const routines = await this.routineRepository.find({
+      relations: ['plans', 'plans.exerciseEntity', 'plans.exerciseEntity.equipment'],
+    });
+
+    if (routines.length === 0) {
+      throw new NotFoundException('No routines available');
+    }
+
+    const withUsage = routines.map((r) => ({
+      routine: r,
+      usesEquipment: (r.plans || []).some(
+        (p) => p.exerciseEntity?.equipment && p.exerciseEntity.equipment.length > 0,
+      ),
+    }));
+
+    // Filtrar por material disponible; si nadie cumple (ej. no hay equipment cargado
+    // todavía), caemos a considerar todas las rutinas
+    let candidates = withUsage.filter((r) => r.usesEquipment === hasEquipment);
+    if (candidates.length === 0) {
+      candidates = withUsage;
+    }
+
+    // Historial reciente del usuario
+    const recentSessions = await this.sessionRepository.find({
+      where: { userId },
+      order: { date: 'DESC' },
+      take: 5,
+    });
+
+    const lastRoutineName = recentSessions[0]?.routine ?? null;
+    const routineInfo = new Map(
+      withUsage.map((r) => [
+        r.routine.name,
+        { category: r.routine.category, difficulty: r.routine.difficulty },
+      ]),
+    );
+    const lastCategory = lastRoutineName ? routineInfo.get(lastRoutineName)?.category : null;
+    const lastDifficulty = lastRoutineName ? routineInfo.get(lastRoutineName)?.difficulty : null;
+    const recentRoutineNames = new Set(recentSessions.map((s) => s.routine));
+
+    // 1) Evitar rutinas hechas recientemente
+    let pool = candidates.filter((c) => !recentRoutineNames.has(c.routine.name));
+    if (pool.length === 0) pool = candidates;
+
+    // 2) Rotar categoría respecto a la última
+    if (lastCategory) {
+      const differentCategory = pool.filter((c) => c.routine.category !== lastCategory);
+      if (differentCategory.length > 0) pool = differentCategory;
+    }
+
+    // 3) Rotar dificultad respecto a la última
+    if (lastDifficulty) {
+      const differentDifficulty = pool.filter((c) => c.routine.difficulty !== lastDifficulty);
+      if (differentDifficulty.length > 0) pool = differentDifficulty;
+    }
+
+    const chosen = pool[Math.floor(Math.random() * pool.length)].routine;
+
+    return {
+      routineName: chosen.name,
+      category: chosen.category,
+      difficulty: chosen.difficulty,
     };
   }
 }

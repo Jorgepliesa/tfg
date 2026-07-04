@@ -148,6 +148,6 @@ export class ClinicalProfile {
   @Column("varchar", { name: "hospital" })
   hospital: string;
 
-  @OneToOne(() => UserAccount, (userAccount) => userAccount.clinicalProfile)
+  @OneToOne(() => UserAccount, (userAccount) => userAccount.clinicalProfileEntity)
   userAccount: UserAccount;
 }
