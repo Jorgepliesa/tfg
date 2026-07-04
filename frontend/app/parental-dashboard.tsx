@@ -17,8 +17,9 @@ const CONTENT_WIDTH = Math.min(SCREEN_WIDTH, 480); // cap en tablet
 // ─── tipos ──────────────────────────────────────────────────────────────────
 interface DashboardData {
     profile: {
-        age: number; gender: string; height: number; weight: number;
-        birthDate: string; diagnosis: string; treatmentEndDate: string; hospital: string;
+        birthDate: string; age: number; biologicalSex: string; tannerStage: string; height: number; weight: number;
+        bmi: number; bmiPercentile: number; priorConditions: string; currentComorbidities: string;
+        familyHistory: string; diagnosis: string; treatmentEndDate: string; hospital: string;
     } | null;
     stats: { streak: number; todaySteps: number; sessionsThisMonth: number; fp: number; };
     steps: { date: string; numSteps: number; isReached: boolean; }[];
@@ -248,11 +249,17 @@ function EditProfileModal({
     onSave: (data: any) => Promise<void>;
 }) {
     const [form, setForm] = useState({
-        age: initial?.age?.toString() ?? '',
-        gender: initial?.gender ?? 'male',
-        height: initial?.height?.toString() ?? '',
-        weight: initial?.weight?.toString() ?? '',
         birthDate: initial?.birthDate ?? '',
+        age: initial?.age?.toString() ?? '',
+        biologicalSex: initial?.biologicalSex ?? 'male',
+        tannerStage: initial?.tannerStage ?? '',
+        weight: initial?.weight?.toString() ?? '',
+        height: initial?.height?.toString() ?? '',
+        bmi: initial?.bmi?.toString() ?? '',
+        bmiPercentile: initial?.bmiPercentile?.toString() ?? '',
+        priorConditions: initial?.priorConditions ?? '',
+        currentComorbidities: initial?.currentComorbidities ?? '',
+        familyHistory: initial?.familyHistory ?? '',
         diagnosis: initial?.diagnosis ?? '',
         treatmentEndDate: initial?.treatmentEndDate ?? '',
         hospital: initial?.hospital ?? '',
@@ -277,11 +284,17 @@ function EditProfileModal({
         setSaving(true);
         try {
             await onSave({
-                age: parseInt(form.age),
-                gender: form.gender,
-                height: parseInt(form.height),
-                weight: parseInt(form.weight),
                 birthDate: form.birthDate,
+                age: parseInt(form.age),
+                biologicalSex: form.biologicalSex,
+                tannerStage: form.tannerStage || undefined,
+                weight: parseFloat(form.weight),
+                height: parseFloat(form.height),
+                bmi: form.bmi ? parseFloat(form.bmi) : undefined,
+                bmiPercentile: form.bmiPercentile ? parseFloat(form.bmiPercentile) : undefined,
+                priorConditions: form.priorConditions || undefined,
+                currentComorbidities: form.currentComorbidities || undefined,
+                familyHistory: form.familyHistory || undefined,
                 diagnosis: form.diagnosis,
                 treatmentEndDate: form.treatmentEndDate,
                 hospital: form.hospital,
@@ -309,29 +322,53 @@ function EditProfileModal({
                     </Pressable>
                 </View>
                 <ScrollView style={styles.modalScroll} contentContainerStyle={{ padding: 20, gap: 4 }}>
-                    {field('Edad', 'age', 'numeric')}
-                    {field('Altura (cm)', 'height', 'numeric')}
-                    {field('Peso (kg)', 'weight', 'numeric')}
                     {field('Fecha nacimiento (YYYY-MM-DD)', 'birthDate')}
-                    {field('Diagnóstico', 'diagnosis')}
-                    {field('Fin tratamiento (YYYY-MM-DD)', 'treatmentEndDate')}
-                    {field('Hospital', 'hospital')}
+                    {field('Edad en la evaluación', 'age', 'numeric')}
+
                     <View style={styles.formField}>
-                        <Text style={styles.formLabel}>Género</Text>
+                        <Text style={styles.formLabel}>Sexo biológico</Text>
                         <View style={styles.genderRow}>
-                            {['male', 'female', 'other'].map(g => (
+                            {['male', 'female'].map(g => (
                                 <Pressable
                                     key={g}
-                                    style={[styles.genderBtn, form.gender === g && styles.genderBtnActive]}
-                                    onPress={() => setForm(f => ({ ...f, gender: g }))}
+                                    style={[styles.genderBtn, form.biologicalSex === g && styles.genderBtnActive]}
+                                    onPress={() => setForm(f => ({ ...f, biologicalSex: g }))}
                                 >
-                                    <Text style={[styles.genderBtnText, form.gender === g && styles.genderBtnTextActive]}>
-                                        {GENDER_LABEL[g]}
+                                    <Text style={[styles.genderBtnText, form.biologicalSex === g && styles.genderBtnTextActive]}>
+                                        {g === 'male' ? 'Masculino' : 'Femenino'}
                                     </Text>
                                 </Pressable>
                             ))}
                         </View>
                     </View>
+
+                    <View style={styles.formField}>
+                        <Text style={styles.formLabel}>Estadio de Tanner (médico)</Text>
+                        <View style={styles.genderRow}>
+                            {['I', 'II', 'III', 'IV', 'V'].map(t => (
+                                <Pressable
+                                    key={t}
+                                    style={[styles.genderBtn, form.tannerStage === t && styles.genderBtnActive]}
+                                    onPress={() => setForm(f => ({ ...f, tannerStage: t }))}
+                                >
+                                    <Text style={[styles.genderBtnText, form.tannerStage === t && styles.genderBtnTextActive]}>
+                                        {t}
+                                    </Text>
+                                </Pressable>
+                            ))}
+                        </View>
+                    </View>
+
+                    {field('Peso (kg)', 'weight', 'numeric')}
+                    {field('Talla (cm)', 'height', 'numeric')}
+                    {field('IMC', 'bmi', 'numeric')}
+                    {field('Percentil IMC', 'bmiPercentile', 'numeric')}
+                    {field('Enfermedades previas al diagnóstico', 'priorConditions')}
+                    {field('Comorbilidades actuales', 'currentComorbidities')}
+                    {field('Antecedentes familiares relevantes', 'familyHistory')}
+                    {field('Diagnóstico', 'diagnosis')}
+                    {field('Fin tratamiento (YYYY-MM-DD)', 'treatmentEndDate')}
+                    {field('Hospital', 'hospital')}
                 </ScrollView>
             </SafeAreaView>
         </Modal>
@@ -614,7 +651,7 @@ export default function ParentalDashboard() {
                     <View style={{ flex: 1 }}>
                         <Text style={styles.profileName}>Usuario #{userId}</Text>
                         <Text style={styles.profileSub}>
-                            {profile ? `${profile.age} años · ${GENDER_LABEL[profile.gender] ?? profile.gender}` : 'Sin perfil clínico'}
+                            {profile ? `${profile.age} años · ${GENDER_LABEL[profile.biologicalSex] ?? profile.biologicalSex}` : 'Sin perfil clínico'}
                         </Text>
                     </View>
                     {profile?.diagnosis && (

@@ -3,7 +3,8 @@ CREATE TYPE challenge_type AS ENUM ('active', 'inactive');
 CREATE TYPE wellness_type AS ENUM ('initial', 'final');
 CREATE TYPE category_type AS ENUM ('aerobic', 'strength', 'flexibility', 'balance');
 CREATE TYPE difficulty_type AS ENUM ('easy', 'medium', 'hard');
-CREATE TYPE gender_type AS ENUM ('male', 'female', 'other');
+CREATE TYPE biological_sex_type AS ENUM ('male', 'female');
+CREATE TYPE tanner_stage_type AS ENUM ('I', 'II', 'III', 'IV', 'V');
 
 CREATE TABLE Item (
     name VARCHAR(255),
@@ -52,13 +53,19 @@ CREATE TABLE complete (
 CREATE TABLE Clinical_Profile (
     id SERIAL,
     age INT,
-    gender gender_type,
+    biological_sex biological_sex_type,
     height INT,
     weight INT,
+    bmi INT,
+    bmi_percentile INT,
     birth_date DATE,
     diagnosis VARCHAR(100),
+    tanner_stage tanner_stage_type,
     treatment_end_date DATE,
     hospital VARCHAR(255),
+    prior_conditions VARCHAR,
+    current_comorbidities VARCHAR,
+    family_history VARCHAR,
     PRIMARY KEY (id),
     CHECK (age >= 0 AND age < 100),
     CHECK (height >= 0 AND height < 200),

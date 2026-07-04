@@ -36,13 +36,13 @@ async function bootstrap() {
       'JWT-auth', // Este es el nombre de la referencia
     )
     .build();
-    
+
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api', app, document);
 
   const port = process.env.PORT ?? 3000;
   await app.listen(port, '0.0.0.0'); // Escuchar en todas las interfaces de red
-  
+
   console.log(`Server running on:`);
   console.log(`   - Local:   http://localhost:${port}`);
   console.log(`   - Network: http://192.168.0.27:${port}`);

@@ -15,7 +15,7 @@ const storage = {
 };
 
 const api = axios.create({
-  baseURL: process.env.EXPO_PUBLIC_API_URL,
+  baseURL: process.env.EXPO_PUBLIC_API_URL || 'http://192.168.0.32:3000',
   timeout: 10000,
 });
 

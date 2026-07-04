@@ -1,26 +1,41 @@
 // entities/omop/OmopMeasurement.ts
-import { Entity, Column, PrimaryColumn } from 'typeorm';
+import { Entity, Column, PrimaryGeneratedColumn } from 'typeorm';
 
 @Entity({ name: 'measurement', schema: 'omop_modified' })
 export class OmopMeasurement {
-    @PrimaryColumn({ name: 'measurement_id' })
+    @PrimaryGeneratedColumn({ name: 'measurement_id' })
     measurementId: number;
 
-    @Column({ name: 'person_id' })
+    @Column({ type: 'integer', name: 'person_id' })
     personId: number;
 
-    @Column({ name: 'measurement_concept_id' })
+    @Column({ type: 'integer', name: 'measurement_concept_id' })
     measurementConceptId: number;
 
-    @Column({ type: 'timestamptz', name: 'measurement_datetime' })
-    measurementDatetime: Date;
+    @Column({ type: 'date', name: 'measurement_date' })
+    measurementDate: string;
 
-    @Column({ type: 'float', name: 'value_as_number', nullable: true })
+    @Column({ type: 'timestamptz', name: 'measurement_datetime', nullable: true })
+    measurementDatetime: Date | null;
+
+    @Column({ type: 'integer', name: 'measurement_type_concept_id', nullable: true })
+    measurementTypeConceptId: number | null;
+
+    @Column({ type: 'numeric', name: 'value_as_number', nullable: true })
     valueAsNumber: number | null;
 
-    @Column({ name: 'measurement_source_value', nullable: true })
+    @Column({ type: 'integer', name: 'unit_concept_id', nullable: true })
+    unitConceptId: number | null;
+
+    @Column({ type: 'numeric', name: 'range_low', nullable: true })
+    rangeLow: number | null;
+
+    @Column({ type: 'numeric', name: 'range_high', nullable: true })
+    rangeHigh: number | null;
+
+    @Column({ type: 'varchar', name: 'measurement_source_value', nullable: true })
     measurementSourceValue: string | null;
 
-    @Column({ name: 'unit_source_value', nullable: true })
+    @Column({ type: 'varchar', name: 'unit_source_value', nullable: true })
     unitSourceValue: string | null;
 }
