@@ -14,8 +14,12 @@
       "yes": "Sí",
       "no": "No",
       "solo": "Solo",
-      "accompanied": "Acompañado"
+      "accompanied": "Acompañado",
+      "cancel": "Cancelar"
     },
+    "idle_title": "¿Listo para entrenar?",
+    "idle_subtitle": "Te sugeriremos la rutina perfecta según tu material y preferencias",
+    "start_recommendation": "Buscar mi rutina",
     "categories": {
       "cardio": {
         "title": "Cardio",
@@ -53,7 +57,8 @@
     },
     "buttons": {
       "next": "Siguiente",
-      "start": "Empezar ejercicios"
+      "start": "Empezar ejercicios",
+      "finish": "¡Finalizar Sesión!"
     },
     "error": {
       "title": "Error",

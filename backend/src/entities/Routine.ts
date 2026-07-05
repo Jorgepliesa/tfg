@@ -39,6 +39,6 @@ export class Routine {
   @Column({type: "enum", name: "difficulty", enum: Difficulty })
   difficulty: Difficulty;
 
-  @OneToMany(() => Plan, (plan) => plan.routine)
+  @OneToMany(() => Plan, (plan) => plan.routineEntity)
   plans: Plan[];
 }

@@ -1,0 +1,62 @@
+Voy a buscar investigación relevante sobre algoritmos de recomendación de ejercicio, especialmente aplicados a contextos pediátricos/oncológicos y gamificación, para darte base sólida.Aquí tienes lo que encontré, organizado para que puedas decidir hasta dónde quieres complicar el algoritmo.
+
+## Lo que dice la literatura clínica (las restricciones "duras")
+
+Para supervivientes de cáncer pediátrico específicamente:
+
+- Las primeras guías clínicas dedicadas a ejercicio en cáncer pediátrico (ACSM, 2024) usan un modelo **FITT** (Frecuencia, Intensidad, Tiempo, Tipo) y recomiendan combinar aeróbico + fuerza para mejorar función muscular y capacidad cardiorrespiratoria, con ejercicios de fuerza adaptados a la edad dirigidos a los grupos musculares principales, evitando la inactividad prolongada siempre que sea médicamente viable.
+- El consenso multidisciplinar ActiveOncoKids (2022) subraya que el rendimiento físico, incluyendo desarrollo motor y actividades de la vida diaria, suele verse afectado desde el diagnóstico hasta la supervivencia, así que la progresión de dificultad debe ser conservadora y reversible (poder bajar de nivel, no solo subir).
+- La ACS/AICR marcan como referencia general 150-300 minutos semanales de actividad moderada, aunque cerca de una cuarta parte de los supervivientes infantiles y adultos jóvenes permanecen completamente sedentarios — es decir, tu objetivo real de negocio no es "optimizar rendimiento" sino maximizar adherencia y evitar abandono.
+
+**Consecuencia práctica para tu algoritmo**: la señal más importante no es "qué rutina es objetivamente mejor", sino "qué rutina mantiene al niño enganchado sin sobrepasar su estado físico actual". Esto cambia el problema de una recomendación de "óptimo" a una de "seguro + motivante".
+
+## Lo que dice la literatura de sistemas de recomendación
+
+Hay tres familias de enfoques, de menos a más sofisticado:
+
+**1. Basado en contenido / reglas (donde estás ahora)**
+Filtrar por atributos (categoría, dificultad, material, coop) y evitar repetición. Es exactamente lo que implementamos. Un estudio de fitness gamificado con perfilado continuo de jugador confirma que esto ya da resultados: combinar recomendación de actividad física con modelado continuo del jugador y elementos gamificados mejora el enganche a largo plazo frente a sistemas que solo varían el tipo de actividad sin tener en cuenta el estado personal.
+
+**2. Content-based + filtrado colaborativo híbrido**
+Un estudio longitudinal comparando ambos enfoques en actividad física encontró que un sistema de filtrado colaborativo basado en usuario y uno basado en contenido, evaluados durante semanas con usuarios reales, cambian la diversidad de recomendaciones y la percepción subjetiva del usuario a lo largo del tiempo. Con pocos usuarios (tu app tiene un usuario piloto), el colaborativo no tiene sentido todavía — necesitarías decenas de usuarios con historial para que aporte señal real. Guárdalo como fase futura.
+
+**3. Adaptación en tiempo real / bandits / DDA (Dynamic Difficulty Adjustment)**
+Aquí está lo más interesante para tu caso. El framework PERFECT usa aprendizaje por refuerzo para proponer planes de ejercicio personalizados a partir de biomarcadores y contexto del usuario, y en concreto usa un contextual bandit como enfoque de aprendizaje activo adaptativo para recomendar ejercicios según biofeedback personalizado e intensidad de ejercicio. No necesitas RL completo, pero la idea de "bandit simple" (probar, medir respuesta, ajustar) es perfectamente aplicable con tus datos de `WellnessTest` + `Execute`.
+
+Sobre DDA específicamente en exergames: el ajuste dinámico de dificultad adapta el nivel de reto en tiempo real según el rendimiento del jugador, fomentando mayor participación en actividad física y motivación intrínseca para la adherencia a largo plazo. Y en un ensayo con niños de 10-12 años haciendo entrenamiento de fuerza gamificado, la progresión se ajustaba every-two-weeks pero con una cláusula importante: para niños particularmente inactivos o con sobrepeso, la progresión se adaptaba permitiéndoles repetir ejercicios de la semana anterior — es decir, el sistema permitía "no subir de nivel" como opción válida, no solo progresar.
+
+## Cómo traducir esto a tu arquitectura actual
+
+Ya tienes las piezas de datos necesarias sin añadir nada nuevo:
+
+| Señal disponible | De dónde sale | Para qué sirve |
+|---|---|---|
+| `WellnessTest.pain/fatigue` (inicial) | Antes de la sesión | Filtrar dificultad hacia abajo si dolor/fatiga altos |
+| `WellnessTest.mood` (final vs inicial) | Después de la sesión | Proxy de si la rutina "gustó" |
+| `Execute.numRepsDone` vs `Plan.numReps` | Ratio de compleción | Si completa <60% del objetivo, bajar dificultad; si completa 100% fácil, subir |
+| `Session` historial (categoría, dificultad, fecha) | Ya usado | Rotación anti-repetición (ya implementado) |
+| `Steps.isReached` | Progreso diario | Señal de energía general del día |
+
+## Propuesta de evolución en 3 fases
+
+**Fase 1 (ya la tienes)**: filtrado por material + rotación de categoría/dificultad evitando repetir última rutina.
+
+**Fase 2 — scoring ponderado** (siguiente paso razonable, sigue siendo determinista y explicable, importante en salud pediátrica donde quieres poder justificar por qué se recomendó algo):
+
+```
+score(routine) = 
+    w1 * matchesEquipmentPreference
+  + w2 * categoryNotRecent
+  + w3 * difficultyAdjustment(lastCompletionRatio, lastPainLevel)
+  - w4 * timesRepeatedRecently
+```
+
+Donde `difficultyAdjustment` baja un nivel si el `pain` inicial del último test fue ≥4 o si el `numRepsDone` promedio de la última sesión fue <60% del objetivo, y sube un nivel si fue >90% y el pain/fatiga eran bajos. Esto es literalmente una regla de "flow" simplificada (el mismo principio que cita el estudio de DDA en terapia de disfonía: el modelo se basa en el modelo de flujo para equilibrar la dificultad del reto con las habilidades del niño).
+
+**Fase 3 — bandit simple** (si más adelante quieres algo más "inteligente" de verdad): tratar cada rutina como un "brazo" y usar epsilon-greedy: la mayoría de las veces recomienda la rutina con mejor histórico de `mood` post-sesión para ese usuario, pero un % de las veces (ej. 20%) prueba una rutina distinta para seguir explorando. Esto requiere guardar el `mood` final asociado a cada `routineName` por usuario, que ya tienes vía `Session.routine` + `WellnessTest` con `type=final`.
+
+## Mi recomendación concreta
+
+Para tu caso (un solo usuario piloto por ahora, dominio clínico sensible, necesidad de explicabilidad para el TFG), yo iría a la **Fase 2** ahora mismo: es la que mejor combina evidencia clínica (ajustar dificultad por dolor/fatiga real, no solo por gusto) con lo que ya implementamos, y es fácil de defender en la memoria del TFG citando el modelo FITT y el principio de flow/DDA. El bandit de Fase 3 lo dejaría como "trabajo futuro" en la memoria — con un solo usuario no hay suficiente señal para que aporte nada real.
+
+¿Quieres que implemente la Fase 2 (scoring con ajuste de dificultad basado en `WellnessTest` y `Execute`) sobre el `recommendRoutine` que ya tienes?

@@ -220,7 +220,9 @@ export default function WellnessTest() {
                         <>
                             <Text style={styles.nextButtonText}>
                                 {categoryIndex === CATEGORIES.length - 1
-                                    ? t('wellnessTest.buttons.start')
+                                    ? type === 'final'
+                                        ? t('wellnessTest.buttons.finish')
+                                        : t('wellnessTest.buttons.start')
                                     : t('wellnessTest.buttons.next')}
                             </Text>
                             <MaterialIcons name="arrow-forward" size={24} color="#fff" />

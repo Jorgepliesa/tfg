@@ -47,9 +47,15 @@ export class Exercise {
   audiovisuals: Audiovisual[];
 
   @ManyToMany(() => Equipment, (equipment) => equipment.exercises)
+  @JoinTable({
+    name: "need",
+    joinColumns: [{ name: "exercise", referencedColumnName: "name" }],
+    inverseJoinColumns: [{ name: "equipment", referencedColumnName: "name" }],
+    schema: "public",
+  })
   equipment: Equipment[];
 
-  @OneToMany(() => Plan, (plan) => plan.exercise)
+  @OneToMany(() => Plan, (plan) => plan.exerciseEntity)
   plans: Plan[];
 
   @ManyToMany(() => MuscleGroup, (muscleGroup) => muscleGroup.exercises)

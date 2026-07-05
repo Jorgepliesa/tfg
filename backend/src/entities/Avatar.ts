@@ -31,10 +31,10 @@ export class Avatar {
   @Column("integer", { name: "fp" })
   fp: number;
 
-  @OneToMany(() => Complete, (complete) => complete.avatar)
+  @OneToMany(() => Complete, (complete) => complete.avatarEntity)
   completes: Complete[];
 
-  @OneToMany(() => Keep, (keep) => keep.avatar)
+  @OneToMany(() => Keep, (keep) => keep.avatarEntity)
   keeps: Keep[];
 
   @OneToOne(() => UserAccount, (userAccount) => userAccount.avatarEntity)

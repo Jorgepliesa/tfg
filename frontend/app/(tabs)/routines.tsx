@@ -7,14 +7,14 @@ import { useTranslation } from "react-i18next";
 import { ActivityIndicator, Alert, Modal, Pressable, View, Text, StyleSheet } from "react-native";
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-type Step = 'equipment' | 'coop' | 'loading';
+type Step = 'idle' | 'equipment' | 'coop' | 'loading';
 
 export default function Routines() {
     const router = useRouter();
     const { t } = useTranslation();
     const { initSession, setIsCoop } = useSession();
 
-    const [step, setStep] = useState<Step>('equipment');
+    const [step, setStep] = useState<Step>('idle');
     const [hasEquipment, setHasEquipment] = useState<boolean | null>(null);
 
     const handleEquipmentAnswer = (answer: boolean) => {
@@ -34,7 +34,7 @@ export default function Routines() {
         } catch (error) {
             console.error('Error al recomendar rutina:', error);
             Alert.alert(t('routines.error_title'), t('routines.error_message'));
-            setStep('equipment');
+            setStep('idle');
         }
     };
 
@@ -60,6 +60,22 @@ export default function Routines() {
                     <MaterialIcons name="apps" size={22} color="#6B5B95" />
                 </Pressable>
             </View>
+
+            {/* Pantalla principal: botón para iniciar recomendación */}
+            {step === 'idle' && (
+                <View style={styles.centerContent}>
+                    <MaterialIcons name="auto-awesome" size={64} color="#6B5B95" />
+                    <Text style={styles.idleTitle}>{t('routines.idle_title')}</Text>
+                    <Text style={styles.idleSubtitle}>{t('routines.idle_subtitle')}</Text>
+                    <Pressable
+                        style={({ pressed }) => [styles.startBtn, pressed && { opacity: 0.8 }]}
+                        onPress={() => setStep('equipment')}
+                    >
+                        <MaterialIcons name="play-arrow" size={24} color="#fff" />
+                        <Text style={styles.startBtnText}>{t('routines.start_recommendation')}</Text>
+                    </Pressable>
+                </View>
+            )}
 
             {step === 'loading' && (
                 <View style={styles.centerContent}>
@@ -91,6 +107,12 @@ export default function Routines() {
                                 <Text style={styles.answerBtnTextYes}>{t('routines.questions.yes')}</Text>
                             </Pressable>
                         </View>
+                        <Pressable
+                            style={styles.cancelLink}
+                            onPress={() => setStep('idle')}
+                        >
+                            <Text style={styles.cancelLinkText}>{t('routines.questions.cancel')}</Text>
+                        </Pressable>
                     </View>
                 </View>
             </Modal>
@@ -119,6 +141,12 @@ export default function Routines() {
                             </Pressable>
                         </View>
                         <Text style={styles.bonusHint}>{t('routines.questions.coop_bonus')}</Text>
+                        <Pressable
+                            style={styles.cancelLink}
+                            onPress={() => setStep('idle')}
+                        >
+                            <Text style={styles.cancelLinkText}>{t('routines.questions.cancel')}</Text>
+                        </Pressable>
                     </View>
                 </View>
             </Modal>
@@ -132,7 +160,11 @@ const styles = StyleSheet.create({
     backButton: { padding: 8, marginRight: 12, borderRadius: 12, minWidth: 44, minHeight: 44, justifyContent: 'center', alignItems: 'center' },
     headerTitle: { flex: 1, fontSize: 24, fontWeight: '600', color: '#2D3E50', textAlign: 'center' },
     categoriesButton: { padding: 8, borderRadius: 12, minWidth: 44, minHeight: 44, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F0EDFF' },
-    centerContent: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 16 },
+    centerContent: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 16, paddingHorizontal: 32 },
+    idleTitle: { fontSize: 22, fontWeight: '700', color: '#2D3E50', textAlign: 'center' },
+    idleSubtitle: { fontSize: 14, color: '#888', textAlign: 'center', marginBottom: 8 },
+    startBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#6B5B95', paddingHorizontal: 28, paddingVertical: 16, borderRadius: 20 },
+    startBtnText: { fontSize: 16, fontWeight: '700', color: '#fff' },
     loadingText: { fontSize: 16, color: '#6B5B95', fontWeight: '500' },
     overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'center', alignItems: 'center', padding: 24 },
     bubble: { backgroundColor: '#fff', borderRadius: 28, padding: 28, width: '100%', maxWidth: 380, alignItems: 'center' },
@@ -146,4 +178,6 @@ const styles = StyleSheet.create({
     answerBtnTextNo: { fontSize: 15, fontWeight: '600', color: '#6B5B95' },
     answerBtnTextYes: { fontSize: 15, fontWeight: '600', color: '#fff' },
     bonusHint: { marginTop: 16, fontSize: 12, color: '#E07B54', fontWeight: '600', textAlign: 'center' },
+    cancelLink: { marginTop: 16 },
+    cancelLinkText: { fontSize: 14, color: '#999', textDecorationLine: 'underline' },
 });

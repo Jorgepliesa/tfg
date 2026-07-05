@@ -14,8 +14,12 @@
       "yes": "Yes",
       "no": "No",
       "solo": "Solo",
-      "accompanied": "Accompanied"
+      "accompanied": "Accompanied",
+      "cancel": "Cancel"
     },
+    "idle_title": "Ready to train?",
+    "idle_subtitle": "We'll suggest the perfect routine based on your equipment and preferences",
+    "start_recommendation": "Find my routine",
     "categories": {
       "cardio": {
         "title": "Cardio",

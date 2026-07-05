@@ -58,7 +58,7 @@ export class Session {
   @JoinColumn([{ name: "user_id", referencedColumnName: "id" }])
   userAccount: UserAccount;
 
-  @OneToMany(() => WellnessTest, (wellnessTest) => wellnessTest.session)
+  @OneToMany(() => WellnessTest, (wellnessTest) => wellnessTest.sessionEntity)
   wellnessTests: WellnessTest[];
 
   @ManyToOne(() => Routine)
