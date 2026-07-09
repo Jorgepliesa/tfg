@@ -1,11 +1,25 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { Routine } from '../entities/Routine';
+import { Between, Repository } from 'typeorm';
+import { Routine, Difficulty } from '../entities/Routine';
 import { Plan } from '../entities/Plan';
 import { Exercise, ExerciseCategory, ExerciseDifficulty } from '../entities/Exercise';
 import { Session } from '../entities/Session';
 import { RoutineDetailsDto, ExerciseInRoutineDto, RoutineCategoryDto, RoutineListDto } from '../dtos/routine.dto';
+import { Execute } from '../entities/Execute';
+import { WellnessTest, WellnessTestType } from '../entities/WellnessTest';
+
+// Orden de dificultad para poder subir/bajar un nivel
+const DIFFICULTY_ORDER = [Difficulty.EASY, Difficulty.MEDIUM, Difficulty.HARD];
+
+// Pesos del scoring — fáciles de ajustar sin tocar la lógica
+const WEIGHTS = {
+  DIFFICULTY_MATCH: 4,      // acierta exactamente con la dificultad objetivo
+  DIFFICULTY_ADJACENT: 2,   // está a un nivel de la objetivo (mejor que un salto brusco)
+  CATEGORY_ROTATION: 2,     // categoría distinta a la última sesión
+  EQUIPMENT_MATCH: 1,       // coincide con la preferencia de material (tie-breaker si el filtro cayó al fallback)
+  RECENT_PENALTY: -3,       // penalización por cada vez que aparece en las últimas sesiones
+};
 
 @Injectable()
 export class RoutineService {
@@ -18,6 +32,10 @@ export class RoutineService {
     private exerciseRepository: Repository<Exercise>,
     @InjectRepository(Session)
     private sessionRepository: Repository<Session>,
+    @InjectRepository(WellnessTest)
+    private wellnessTestRepository: Repository<WellnessTest>,
+    @InjectRepository(Execute)
+    private executeRepository: Repository<Execute>,
   ) { }
 
 
@@ -188,10 +206,11 @@ export class RoutineService {
   }
 
   /**
-   * Recomienda una rutina según disponibilidad de material e historial reciente:
-   * - Filtra por si la rutina usa o no material (con fallback si no hay coincidencias)
-   * - Evita repetir rutinas hechas en las últimas sesiones
-   * - Rota categoría y dificultad respecto a la última rutina hecha
+   * Recomienda una rutina combinando:
+   * - Filtro duro por material disponible (con fallback si no hay coincidencias)
+   * - Ajuste de dificultad objetivo según dolor/fatiga y ratio de compleción de la última sesión
+   * - Rotación de categoría respecto a la última rutina hecha
+   * - Penalización por repetición reciente
    */
   async recommendRoutine(
     userId: number,
@@ -212,53 +231,146 @@ export class RoutineService {
       ),
     }));
 
-    // Filtrar por material disponible; si nadie cumple (ej. no hay equipment cargado
-    // todavía), caemos a considerar todas las rutinas
+    // 1) Filtro duro por material (con fallback a todas si no hay coincidencias)
     let candidates = withUsage.filter((r) => r.usesEquipment === hasEquipment);
-    if (candidates.length === 0) {
+    const usedFallback = candidates.length === 0;
+    if (usedFallback) {
       candidates = withUsage;
     }
 
-    // Historial reciente del usuario
+    // 2) Historial reciente
     const recentSessions = await this.sessionRepository.find({
       where: { userId },
       order: { date: 'DESC' },
       take: 5,
     });
 
-    const lastRoutineName = recentSessions[0]?.routine ?? null;
-    const routineInfo = new Map(
-      withUsage.map((r) => [
-        r.routine.name,
-        { category: r.routine.category, difficulty: r.routine.difficulty },
-      ]),
-    );
-    const lastCategory = lastRoutineName ? routineInfo.get(lastRoutineName)?.category : null;
-    const lastDifficulty = lastRoutineName ? routineInfo.get(lastRoutineName)?.difficulty : null;
-    const recentRoutineNames = new Set(recentSessions.map((s) => s.routine));
-
-    // 1) Evitar rutinas hechas recientemente
-    let pool = candidates.filter((c) => !recentRoutineNames.has(c.routine.name));
-    if (pool.length === 0) pool = candidates;
-
-    // 2) Rotar categoría respecto a la última
-    if (lastCategory) {
-      const differentCategory = pool.filter((c) => c.routine.category !== lastCategory);
-      if (differentCategory.length > 0) pool = differentCategory;
+    const recentRoutineCounts = new Map<string, number>();
+    for (const s of recentSessions) {
+      recentRoutineCounts.set(s.routine, (recentRoutineCounts.get(s.routine) ?? 0) + 1);
     }
 
-    // 3) Rotar dificultad respecto a la última
-    if (lastDifficulty) {
-      const differentDifficulty = pool.filter((c) => c.routine.difficulty !== lastDifficulty);
-      if (differentDifficulty.length > 0) pool = differentDifficulty;
+    const lastSession = recentSessions[0] ?? null;
+    const lastRoutine = lastSession
+      ? routines.find((r) => r.name === lastSession.routine) ?? null
+      : null;
+    const lastCategory = lastRoutine?.category ?? null;
+
+    // 3) Calcular dificultad objetivo a partir de la última sesión (dolor/fatiga + ratio de compleción)
+    const targetDifficulty = await this.computeTargetDifficulty(userId, lastSession, lastRoutine);
+
+    // 4) Scoring
+    let bestScore = -Infinity;
+    let bestCandidates: typeof candidates = [];
+
+    for (const c of candidates) {
+      let score = 0;
+
+      const diffIndex = DIFFICULTY_ORDER.indexOf(c.routine.difficulty as unknown as Difficulty);
+      const targetIndex = DIFFICULTY_ORDER.indexOf(targetDifficulty);
+      const diffDistance = Math.abs(diffIndex - targetIndex);
+
+      if (diffDistance === 0) score += WEIGHTS.DIFFICULTY_MATCH;
+      else if (diffDistance === 1) score += WEIGHTS.DIFFICULTY_ADJACENT;
+
+      if (lastCategory && c.routine.category !== lastCategory) {
+        score += WEIGHTS.CATEGORY_ROTATION;
+      }
+
+      if (!usedFallback && c.usesEquipment === hasEquipment) {
+        score += WEIGHTS.EQUIPMENT_MATCH;
+      }
+
+      const timesRecent = recentRoutineCounts.get(c.routine.name) ?? 0;
+      score += WEIGHTS.RECENT_PENALTY * timesRecent;
+
+      if (score > bestScore) {
+        bestScore = score;
+        bestCandidates = [c];
+      } else if (score === bestScore) {
+        bestCandidates.push(c);
+      }
     }
 
-    const chosen = pool[Math.floor(Math.random() * pool.length)].routine;
+    // Empate -> elegir al azar entre los mejores para no ser siempre determinista
+    const chosen = bestCandidates[Math.floor(Math.random() * bestCandidates.length)].routine;
 
     return {
       routineName: chosen.name,
       category: chosen.category,
       difficulty: chosen.difficulty,
     };
+  }
+
+  /**
+   * Determina la dificultad objetivo para la próxima rutina:
+   * - Sin historial -> EASY (arranque conservador)
+   * - Dolor/fatiga altos en el test inicial de la última sesión, o baja compleción -> bajar un nivel
+   * - Dolor/fatiga bajos y alta compleción -> subir un nivel
+   * - En cualquier otro caso -> mantener la dificultad de la última rutina
+   */
+  private async computeTargetDifficulty(
+    userId: number,
+    lastSession: Session | null,
+    lastRoutine: Routine | null,
+  ): Promise<Difficulty> {
+    if (!lastSession || !lastRoutine) {
+      return Difficulty.EASY;
+    }
+
+    const start = new Date(lastSession.date);
+    start.setMilliseconds(0);
+    const end = new Date(lastSession.date);
+    end.setMilliseconds(999);
+
+    const initialTest = await this.wellnessTestRepository.findOne({
+      where: {
+        session: Between(start, end),
+        userId,
+        type: WellnessTestType.INITIAL,
+      },
+    });
+
+    const executes = await this.executeRepository.find({
+      where: {
+        session: Between(start, end),
+        userId,
+      },
+    });
+
+    const plans = await this.planRepository.find({
+      where: { routine: lastRoutine.name },
+    });
+    const planByExercise = new Map(plans.map((p) => [p.exercise, p]));
+
+    let completionRatio = 1; // sin datos -> asumimos que fue bien, no penalizamos
+    if (executes.length > 0) {
+      const ratios = executes
+        .map((e) => {
+          const plan = planByExercise.get(e.exercise);
+          if (!plan) return null;
+          const target = plan.numReps * plan.numSeries;
+          if (target <= 0) return null;
+          return Math.min(e.numRepsDone / target, 1);
+        })
+        .filter((r): r is number => r !== null);
+
+      if (ratios.length > 0) {
+        completionRatio = ratios.reduce((a, b) => a + b, 0) / ratios.length;
+      }
+    }
+
+    const currentIndex = DIFFICULTY_ORDER.indexOf(lastRoutine.difficulty as unknown as Difficulty);
+    const painOrFatigueHigh = initialTest ? initialTest.pain >= 4 || initialTest.fatigue >= 4 : false;
+    const painAndFatigueLow = initialTest ? initialTest.pain <= 2 && initialTest.fatigue <= 2 : false;
+
+    let newIndex = currentIndex;
+    if (painOrFatigueHigh || completionRatio < 0.6) {
+      newIndex = Math.max(0, currentIndex - 1);
+    } else if (painAndFatigueLow && completionRatio > 0.9) {
+      newIndex = Math.min(DIFFICULTY_ORDER.length - 1, currentIndex + 1);
+    }
+
+    return DIFFICULTY_ORDER[newIndex];
   }
 }

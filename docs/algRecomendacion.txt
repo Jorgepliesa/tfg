@@ -60,3 +60,17 @@ Donde `difficultyAdjustment` baja un nivel si el `pain` inicial del último test
 Para tu caso (un solo usuario piloto por ahora, dominio clínico sensible, necesidad de explicabilidad para el TFG), yo iría a la **Fase 2** ahora mismo: es la que mejor combina evidencia clínica (ajustar dificultad por dolor/fatiga real, no solo por gusto) con lo que ya implementamos, y es fácil de defender en la memoria del TFG citando el modelo FITT y el principio de flow/DDA. El bandit de Fase 3 lo dejaría como "trabajo futuro" en la memoria — con un solo usuario no hay suficiente señal para que aporte nada real.
 
 ¿Quieres que implemente la Fase 2 (scoring con ajuste de dificultad basado en `WellnessTest` y `Execute`) sobre el `recommendRoutine` que ya tienes?
+
+
+UNA VEZ IMPLEMENTADO:
+1. Filtro duro de material — igual que antes, con fallback si no hay rutinas que cumplan.
+2. Dificultad objetivo: mira la última sesión completa (rutina + WellnessTest inicial + Execute de esa sesión). Si dolor o fatiga iniciales fueron ≥4, o completó menos del 60% de las repeticiones objetivo, baja un nivel. Si dolor y fatiga fueron ≤2 y completó más del 90%, sube un nivel. Si no hay señal clara, se queda en el mismo nivel que la última rutina. Sin historial (primera vez), arranca en EASY — conservador, como recomienda la guía ActiveOncoKids que vimos.
+3. Scoring: cada rutina candidata suma puntos por acertar la dificultad objetivo (o quedar cerca, para no dar saltos bruscos de dificultad), por cambiar de categoría respecto a la última, y por coincidir con la preferencia de material cuando el filtro no tuvo que caer al fallback. Resta puntos por cada vez que apareció en las últimas 5 sesiones.
+4. Desempate aleatorio entre las rutinas con la puntuación más alta, para que no sea 100% determinista y repita siempre la misma cuando hay empate.
+
+Para probarlo
+Con tu seed actual (todas las rutinas EASY), la parte de dificultad no se notará hasta que tengas rutinas de medium/hard en BD, o registres varias sesiones con ejercicios de material variado (los inserts que te di antes ya te dan algo de variación de material). Te recomiendo, para verificar rápido:
+
+Genera 2-3 sesiones con Execute donde numRepsDone sea bajo (~30% del objetivo) y un WellnessTest inicial con pain: 5, fatigue: 5.
+Llama a /routine/recommend y comprueba que el log/respuesta tiende a rutinas cuya dificultad no suba (con tu seed solo hay easy, así que verás que sigue en easy, que es el comportamiento correcto — no debería subir a medium si no existiera aún).
+Si quieres ver el salto de verdad, añade una rutina medium de prueba en BD y repite con datos "buenos" (pain: 1, fatigue: 1, numRepsDone = objetivo completo)
