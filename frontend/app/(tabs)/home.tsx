@@ -12,6 +12,7 @@ import {
   NativeSyntheticEvent, NativeScrollEvent,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { ItemCategory, EquippedItem, AvatarDisplay } from "./avatar";
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -65,6 +66,15 @@ export default function Home() {
   const [inventory, setInventory] = useState<KeepEntry[]>([]);
   const [invLoading, setInvLoading] = useState(false);
 
+  // ── Estado de vestuario (avatar) ─────────────────────────────────────────────
+  const [committedEquipped, setCommittedEquipped] = useState<Record<ItemCategory, string | null>>({
+    head: null, body: null, legs: null, feet: null, arms: null, face: null, accessory: null,
+  });
+  const [previewEquipped, setPreviewEquipped] = useState<Record<ItemCategory, string | null>>({
+    head: null, body: null, legs: null, feet: null, arms: null, face: null, accessory: null,
+  });
+  const [confirming, setConfirming] = useState(false);
+
   // ── Carga de datos ───────────────────────────────────────────────────────────
   useFocusEffect(
     useCallback(() => {
@@ -107,6 +117,15 @@ export default function Home() {
       setInvLoading(true);
       const inv = await shopService.getInventory();
       setInventory(inv);
+
+      const equippedMap: Record<ItemCategory, string | null> = {
+        head: null, body: null, legs: null, feet: null, arms: null, face: null, accessory: null,
+      };
+      inv.forEach((k: KeepEntry) => {
+        if (k.isWearing) equippedMap[k.itemEntity.type as ItemCategory] = k.item;
+      });
+      setCommittedEquipped(equippedMap);
+      setPreviewEquipped(equippedMap); // al recargar, el preview arranca igual al estado real
     } catch {
       // silencioso; se muestra el estado vacío
     } finally {
@@ -123,6 +142,50 @@ export default function Home() {
       Alert.alert('Error', 'No se pudo equipar el objeto');
     }
   };
+
+  const handleSelectPreview = (type: ItemCategory, itemName: string | null) => {
+    setPreviewEquipped(prev => ({ ...prev, [type]: itemName }));
+  };
+
+  const hasPendingChanges = (Object.keys(previewEquipped) as ItemCategory[]).some(
+    (type) => previewEquipped[type] !== committedEquipped[type]
+  );
+
+  const handleCancelPreview = () => {
+    setPreviewEquipped(committedEquipped);
+  };
+
+  const handleConfirmChanges = async () => {
+    setConfirming(true);
+    try {
+      const types = Object.keys(previewEquipped) as ItemCategory[];
+      for (const type of types) {
+        if (previewEquipped[type] === committedEquipped[type]) continue;
+
+        if (previewEquipped[type] !== null) {
+          // Equipar el nuevo item de este slot (el backend desequipa el anterior del mismo tipo)
+          await shopService.equipItem(previewEquipped[type]!);
+        } else if (committedEquipped[type] !== null) {
+          // "Quitar": el endpoint alterna isWearing, así que llamamos sobre el que estaba puesto
+          await shopService.equipItem(committedEquipped[type]!);
+        }
+      }
+      await loadInventory();
+    } catch (error) {
+      Alert.alert('Error', 'No se pudieron guardar los cambios de vestuario');
+      setPreviewEquipped(committedEquipped); // revertir preview si algo falla
+    } finally {
+      setConfirming(false);
+    }
+  };
+
+  const previewList: EquippedItem[] = (Object.entries(previewEquipped) as [ItemCategory, string | null][])
+    .filter(([, item]) => item !== null)
+    .map(([type, item]) => ({ type, item: item! }));
+
+  const committedList: EquippedItem[] = (Object.entries(committedEquipped) as [ItemCategory, string | null][])
+    .filter(([, item]) => item !== null)
+    .map(([type, item]) => ({ type, item: item! }));
 
   // ── Navegación ───────────────────────────────────────────────────────────────
   const goToExercises = async () => {
@@ -327,10 +390,7 @@ export default function Home() {
             </View>
             {/* Avatar */}
             <View style={styles.avatarContainer}>
-              <Image
-                source={require('@/assets/images/Avatar.png')}
-                style={styles.avatarImage}
-              />
+              <AvatarDisplay equipped={committedList} size={320} />
             </View>
             {/* Barra de botones inferior */}
             <View style={styles.bottomBar}>
@@ -385,9 +445,8 @@ export default function Home() {
           </ImageBackground>
         </View>
 
-        {/* ── PÁGINA 1: Inventario ─────────────────────────────────────────────── */}
+        {/* ── PÁGINA: Inventario / Vestuario ────────────────────────────────────── */}
         <View style={[styles.page, styles.inventoryPage]}>
-          {/* Header */}
           <SafeAreaView style={styles.invSafeArea}>
             <View style={styles.invHeader}>
               <Pressable
@@ -396,8 +455,16 @@ export default function Home() {
               >
                 <MaterialIcons name="arrow-circle-left" size={28} color="#6B5B95" />
               </Pressable>
-              <Text style={styles.invHeaderTitle}>Inventario</Text>
+              <Text style={styles.invHeaderTitle}>Vestuario</Text>
               <View style={styles.headerSpacer} />
+            </View>
+
+            {/* Preview del avatar en vivo */}
+            <View style={styles.previewStage}>
+              <AvatarDisplay equipped={previewList} size={180} isPreview={hasPendingChanges} />
+              {hasPendingChanges && (
+                <Text style={styles.previewHint}>Previsualizando cambios</Text>
+              )}
             </View>
 
             {/* Tabs de categorías */}
@@ -430,7 +497,7 @@ export default function Home() {
               ))}
             </ScrollView>
 
-            {/* Contenido del inventario */}
+            {/* Grid de items de la categoría activa */}
             {invLoading ? (
               <View style={styles.invLoadingContainer}>
                 <ActivityIndicator size="large" color="#6B5B95" />
@@ -442,55 +509,93 @@ export default function Home() {
                 showsVerticalScrollIndicator={false}
                 nestedScrollEnabled
               >
-                {filtered.length === 0 ? (
-                  <View style={styles.emptyState}>
-                    <MaterialIcons name="inventory-2" size={64} color="#ccc" />
-                    <Text style={styles.emptyText}>No tienes objetos en esta categoría</Text>
+                <View style={styles.grid}>
+                  {/* Opción "Quitar" — siempre presente para poder dejar el slot vacío */}
+                  <Pressable
+                    style={[
+                      styles.itemCard,
+                      styles.itemCardNone,
+                      previewEquipped[activeCategory] === null && styles.itemCardSelected,
+                    ]}
+                    onPress={() => handleSelectPreview(activeCategory, null)}
+                  >
+                    <View style={styles.itemImageBox}>
+                      <MaterialIcons name="block" size={40} color="#aaa" />
+                    </View>
+                    <Text style={styles.itemName}>Sin equipar</Text>
+                  </Pressable>
+
+                  {filtered.map(entry => (
                     <Pressable
-                      style={({ pressed }) => [styles.shopButton, pressed && { opacity: 0.8 }]}
-                      onPress={() => router.push('/(tabs)/shop')}
+                      key={entry.item}
+                      style={[
+                        styles.itemCard,
+                        { backgroundColor: CATEGORY_COLORS[entry.itemEntity.type] },
+                        previewEquipped[activeCategory] === entry.item && styles.itemCardSelected,
+                      ]}
+                      onPress={() => handleSelectPreview(activeCategory, entry.item)}
                     >
-                      <MaterialIcons name="storefront" size={20} color="#fff" />
-                      <Text style={styles.shopButtonText}>Ir a la tienda</Text>
-                    </Pressable>
-                  </View>
-                ) : (
-                  <View style={styles.grid}>
-                    {filtered.map(entry => (
-                      <Pressable
-                        key={entry.item}
-                        style={[
-                          styles.itemCard,
-                          { backgroundColor: CATEGORY_COLORS[entry.itemEntity.type] },
-                          entry.isWearing && styles.itemCardEquipped,
-                        ]}
-                        onPress={() => handleEquip(entry.item)}
-                      >
-                        <View style={styles.itemImageBox}>
-                          <MaterialIcons
-                            name={CATEGORY_ICONS[entry.itemEntity.type] as any}
-                            size={48}
-                            color="#6B5B95"
-                          />
+                      <View style={styles.itemImageBox}>
+                        <MaterialIcons
+                          name={CATEGORY_ICONS[entry.itemEntity.type] as any}
+                          size={48}
+                          color="#6B5B95"
+                        />
+                      </View>
+                      <Text style={styles.itemName} numberOfLines={2}>
+                        {entry.item}
+                      </Text>
+                      {previewEquipped[activeCategory] === entry.item && (
+                        <View style={styles.equippedBadge}>
+                          <Text style={styles.equippedBadgeText}>Seleccionado</Text>
                         </View>
-                        <Text style={styles.itemName} numberOfLines={2}>
-                          {entry.item}
-                        </Text>
-                        {entry.isWearing ? (
-                          <View style={styles.equippedBadge}>
-                            <Text style={styles.equippedBadgeText}>Equipado</Text>
-                          </View>
-                        ) : (
-                          <View style={styles.unequippedBadge}>
-                            <Text style={styles.unequippedBadgeText}>Equipar</Text>
-                          </View>
-                        )}
+                      )}
+                    </Pressable>
+                  ))}
+
+                  {filtered.length === 0 && (
+                    <View style={styles.emptyState}>
+                      <MaterialIcons name="inventory-2" size={64} color="#ccc" />
+                      <Text style={styles.emptyText}>No tienes objetos en esta categoría</Text>
+                      <Pressable
+                        style={({ pressed }) => [styles.shopButton, pressed && { opacity: 0.8 }]}
+                        onPress={() => router.push('/(tabs)/shop')}
+                      >
+                        <MaterialIcons name="storefront" size={20} color="#fff" />
+                        <Text style={styles.shopButtonText}>Ir a la tienda</Text>
                       </Pressable>
-                    ))}
-                  </View>
-                )}
-                <View style={{ height: 40 }} />
+                    </View>
+                  )}
+                </View>
+                <View style={{ height: hasPendingChanges ? 100 : 40 }} />
               </ScrollView>
+            )}
+
+            {/* Barra de confirmación — solo visible si hay cambios pendientes */}
+            {hasPendingChanges && (
+              <View style={styles.confirmBar}>
+                <Pressable
+                  style={({ pressed }) => [styles.confirmBarCancel, pressed && { opacity: 0.7 }]}
+                  onPress={handleCancelPreview}
+                  disabled={confirming}
+                >
+                  <Text style={styles.confirmBarCancelText}>Descartar</Text>
+                </Pressable>
+                <Pressable
+                  style={({ pressed }) => [styles.confirmBarConfirm, pressed && { opacity: 0.85 }]}
+                  onPress={handleConfirmChanges}
+                  disabled={confirming}
+                >
+                  {confirming ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <>
+                      <MaterialIcons name="check" size={20} color="#fff" />
+                      <Text style={styles.confirmBarConfirmText}>Confirmar</Text>
+                    </>
+                  )}
+                </Pressable>
+              </View>
             )}
           </SafeAreaView>
         </View>
@@ -1040,5 +1145,64 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
     padding: 8,
+  },
+
+  previewStage: {
+    alignItems: 'center',
+    paddingVertical: 12,
+    gap: 6,
+  },
+  previewHint: {
+    fontSize: 12,
+    color: '#6B5B95',
+    fontWeight: '600',
+  },
+  itemCardNone: {
+    backgroundColor: '#F5F5F5',
+    borderWidth: 2,
+    borderColor: '#E0E0E0',
+    borderStyle: 'dashed',
+  },
+  itemCardSelected: {
+    borderWidth: 3,
+    borderColor: '#6B5B95',
+  },
+  confirmBar: {
+    position: 'absolute',
+    bottom: 0, left: 0, right: 0,
+    flexDirection: 'row',
+    gap: 12,
+    padding: 16,
+    backgroundColor: '#fff',
+    borderTopWidth: 1,
+    borderTopColor: '#E0E0E0',
+  },
+  confirmBarCancel: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 16,
+    backgroundColor: '#F0F0F0',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  confirmBarCancelText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#666',
+  },
+  confirmBarConfirm: {
+    flex: 1,
+    flexDirection: 'row',
+    gap: 8,
+    paddingVertical: 14,
+    borderRadius: 16,
+    backgroundColor: '#6B5B95',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  confirmBarConfirmText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#fff',
   },
 });

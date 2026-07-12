@@ -1,6 +1,6 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Between, MoreThan } from 'typeorm';
+import { Repository, Between, MoreThan, In } from 'typeorm';
 import { ClinicalProfile } from '../entities/ClinicalProfile';
 import { Session } from '../entities/Session';
 import { Steps } from '../entities/Steps';
@@ -9,6 +9,7 @@ import { Execute } from '../entities/Execute';
 import { UserAccount } from '../entities/UserAccount';
 import { ClinicalProfileCreateDto, ClinicalProfileUpdateDto } from '../dtos/clinicalProfile.dto';
 import { SupervisorNote } from '../entities/SupervisorNote';
+import { Contraindication } from '../entities/Contraindication';
 
 @Injectable()
 export class ClinicalProfileService {
@@ -27,6 +28,8 @@ export class ClinicalProfileService {
         private userRepository: Repository<UserAccount>,
         @InjectRepository(SupervisorNote)
         private noteRepository: Repository<SupervisorNote>,
+        @InjectRepository(Contraindication)
+        private contraindicationRepository: Repository<Contraindication>,
     ) { }
 
     async getProfile(userId: number): Promise<ClinicalProfile | null> {
@@ -214,5 +217,46 @@ export class ClinicalProfileService {
 
     async deleteNote(userId: number, date: string): Promise<void> {
         await this.noteRepository.delete({ clinicalProfile: userId, date: new Date(date) });
+    }
+
+    // ─── Contraindicaciones ─────────────────────────────────────────────────────────
+    async getContraindicationCatalog(): Promise<Contraindication[]> {
+        return this.contraindicationRepository.find({
+            order: { name: 'ASC' },
+        });
+    }
+
+    async getUserContraindications(userId: number): Promise<Contraindication[]> {
+        const user = await this.userRepository.findOne({ where: { id: userId } });
+        if (!user) throw new NotFoundException('User not found');
+
+        const profile = await this.profileRepository.findOne({
+            where: { id: user.clinicalProfile },
+            relations: ['contraindications'],
+        });
+        return profile?.contraindications ?? [];
+    }
+
+    async setContraindications(userId: number, names: string[]): Promise<Contraindication[]> {
+        const user = await this.userRepository.findOne({ where: { id: userId } });
+        if (!user) throw new NotFoundException('User not found');
+
+        const profile = await this.profileRepository.findOne({
+            where: { id: user.clinicalProfile },
+            relations: ['contraindications'],
+        });
+        if (!profile) throw new NotFoundException('Clinical profile not found');
+
+        const selected = await this.contraindicationRepository.find({
+            where: { name: In(names) },
+        });
+        if (selected.length !== names.length) {
+            throw new BadRequestException('One or more contraindications do not exist');
+        }
+
+        profile.contraindications = selected;
+        await this.profileRepository.save(profile);
+
+        return selected;
     }
 }

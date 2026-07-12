@@ -14,6 +14,7 @@ import { Keep } from "./Keep";
 import { UserAccount } from "./UserAccount";
 import { ApiProperty } from "@nestjs/swagger";
 import { Complete } from "./Complete";
+import { Contraindication } from "./Contraindication";
 
 export enum BiologicalSex {
   MALE = "male",
@@ -150,4 +151,14 @@ export class ClinicalProfile {
 
   @OneToOne(() => UserAccount, (userAccount) => userAccount.clinicalProfileEntity)
   userAccount: UserAccount;
+
+  @ApiProperty({ type: [String], description: "Contraindicaciones que presenta el paciente" })
+  @ManyToMany(() => Contraindication, (c) => c.clinicalProfiles)
+  @JoinTable({
+    name: "presents",
+    joinColumns: [{ name: "clinical_profile", referencedColumnName: "id" }],
+    inverseJoinColumns: [{ name: "contraindication", referencedColumnName: "name" }],
+    schema: "public",
+  })
+  contraindications: Contraindication[];
 }

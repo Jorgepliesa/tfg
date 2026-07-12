@@ -8,6 +8,8 @@ import { Session } from '../entities/Session';
 import { RoutineDetailsDto, ExerciseInRoutineDto, RoutineCategoryDto, RoutineListDto } from '../dtos/routine.dto';
 import { Execute } from '../entities/Execute';
 import { WellnessTest, WellnessTestType } from '../entities/WellnessTest';
+import { UserAccount } from '../entities/UserAccount';
+import { ClinicalProfile } from '../entities/ClinicalProfile';
 
 // Orden de dificultad para poder subir/bajar un nivel
 const DIFFICULTY_ORDER = [Difficulty.EASY, Difficulty.MEDIUM, Difficulty.HARD];
@@ -36,6 +38,10 @@ export class RoutineService {
     private wellnessTestRepository: Repository<WellnessTest>,
     @InjectRepository(Execute)
     private executeRepository: Repository<Execute>,
+    @InjectRepository(ClinicalProfile)
+    private clinicalProfileRepository: Repository<ClinicalProfile>,
+    @InjectRepository(UserAccount)
+    private userRepository: Repository<UserAccount>,
   ) { }
 
 
@@ -123,9 +129,30 @@ export class RoutineService {
   }
 
   /**
-   * Get detailed routine info (for frontend to show all exercises)
+   * Devuelve el conjunto de nombres de contraindicaciones que presenta el usuario,
    */
-  async getRoutineDetails(routineName: string): Promise<ExerciseInRoutineDto[]> {
+  private async getUserContraindications(userId: number): Promise<Set<string>> {
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user) return new Set();
+
+    const profile = await this.clinicalProfileRepository.findOne({
+      where: { id: user.clinicalProfile },
+      relations: ['contraindications'],
+    });
+    if (!profile) return new Set();
+
+    return new Set((profile.contraindications || []).map((l) => l.name));
+  }
+
+  /**
+   * Get detailed routine info (for frontend to show all exercises)
+   * Excluye las contraindicaciones del usuario.
+   * TODO(futuro): cuando se integren datos monitorizados (frecuencia cardiaca,
+   * SpO2 vía OmopSensorService), este filtro también podría excluir/ajustar
+   * ejercicios de alta intensidad en tiempo real según lecturas recientes,
+   * no solo según limitaciones estáticas del perfil clínico.
+   */
+  async getRoutineDetails(routineName: string, userId?: number): Promise<ExerciseInRoutineDto[]> {
     // Usamos getRawMany para obtener un array plano directo desde SQL sin hidratar entidades pesadas
     const exercisesRaw = await this.planRepository.createQueryBuilder('plan')
       .innerJoin('plan.exerciseEntity', 'exercise')
@@ -154,7 +181,31 @@ export class RoutineService {
       throw new BadRequestException(`Routine "${routineName}" has no exercises`);
     }
 
-    return exercisesRaw; // Devolvemos directamente el array de ejercicios
+    if (!userId) {
+      return exercisesRaw;
+    }
+    const contraindicationNames = await this.getUserContraindications(userId);
+    if (contraindicationNames.size === 0) {
+      return exercisesRaw;
+    }
+
+    const restrictedRows = await this.exerciseRepository
+      .createQueryBuilder('exercise')
+      .innerJoin('exercise.contraindications', 'contraindication')
+      .where('contraindication.name IN (:...names)', { names: Array.from(contraindicationNames) })
+      .select('exercise.name', 'name')
+      .getRawMany();
+
+    const restrictedSet = new Set(restrictedRows.map((r) => r.name));
+    const filtered = exercisesRaw.filter((e) => !restrictedSet.has(e.exerciseName));
+
+    if (filtered.length === 0) {
+      throw new BadRequestException(
+        `Routine "${routineName}" has no exercises compatible with the user's current limitations`,
+      );
+    }
+
+    return filtered;
   }
 
   /**
@@ -211,18 +262,25 @@ export class RoutineService {
    * - Ajuste de dificultad objetivo según dolor/fatiga y ratio de compleción de la última sesión
    * - Rotación de categoría respecto a la última rutina hecha
    * - Penalización por repetición reciente
+   * - Solo considera rutinas personalizadas para el usuario (Segun sus contraindicaciones y parámetros)
    */
   async recommendRoutine(
     userId: number,
     hasEquipment: boolean,
   ): Promise<{ routineName: string; category: string; difficulty: string }> {
+    const contraindications = await this.getUserContraindications(userId);
+
     const routines = await this.routineRepository.find({
-      relations: ['plans', 'plans.exerciseEntity', 'plans.exerciseEntity.equipment'],
+      relations: ['plans', 'plans.exerciseEntity', 'plans.exerciseEntity.equipment', 'plans.exerciseEntity.contraindications'],
     });
 
-    if (routines.length === 0) {
-      throw new NotFoundException('No routines available');
-    }
+    /*const visibleRoutines = routines.filter(
+      (r) => r.assignedUserId === null || r.assignedUserId === userId,
+    );
+
+    if (visibleRoutines.length === 0) {
+      throw new NotFoundException('No routines available for this user');
+    }*/
 
     const withUsage = routines.map((r) => ({
       routine: r,

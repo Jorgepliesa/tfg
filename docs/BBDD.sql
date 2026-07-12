@@ -73,6 +73,28 @@ CREATE TABLE Clinical_Profile (
     CHECK (birth_date < CURRENT_DATE)
 );
 
+CREATE TABLE contraindication (
+    name VARCHAR(255),
+    description TEXT,
+    PRIMARY KEY (name)
+);
+
+CREATE TABLE presents (
+    clinical_profile INT NOT NULL,
+    contraindication VARCHAR(255) NOT NULL,
+    PRIMARY KEY (clinical_profile, contraindication),
+    FOREIGN KEY (clinical_profile) REFERENCES Clinical_Profile(id),
+    FOREIGN KEY (contraindication) REFERENCES contraindication(name)
+);
+
+CREATE TABLE restricts (
+    exercise VARCHAR(255),
+    contraindication VARCHAR(255) NOT NULL,
+    PRIMARY KEY (exercise, contraindication),
+    FOREIGN KEY (exercise) REFERENCES Exercise(name),
+    FOREIGN KEY (contraindication) REFERENCES contraindication(name)
+);
+
 CREATE TABLE User_Account (
     id INT,
     avatar INT NOT NULL,

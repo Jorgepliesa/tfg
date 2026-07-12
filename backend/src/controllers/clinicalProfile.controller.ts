@@ -4,8 +4,9 @@ import {
     Delete,
     Param,
     BadRequestException,
+    Put,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiTags, ApiResponse, ApiQuery } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiTags, ApiResponse, ApiQuery, ApiBody } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../utils/jwt-auth.guard';
 import { ClinicalProfileService } from '../services/clinicalProfile.service';
 import { ClinicalProfileCreateDto, ClinicalProfileUpdateDto } from '../dtos/clinicalProfile.dto';
@@ -69,5 +70,21 @@ export class ClinicalProfileController {
     @Delete('notes/:date')
     async deleteNote(@Req() req: Request, @Param('date') date: string) {
         return this.service.deleteNote(req.user!.id, date);
+    }
+
+    @Get('contraindications/catalog')
+    async getContraindicationCatalog() {
+        return this.service.getContraindicationCatalog();
+    }
+
+    @Get('contraindications')
+    async getContraindications(@Req() req: Request) {
+        return this.service.getUserContraindications(req.user!.id);
+    }
+
+    @Put('contraindications')
+    @ApiBody({ schema: { example: { names: ['Neuropatía'] } } })
+    async setContraindications(@Req() req: Request, @Body('names') names: string[]) {
+        return this.service.setContraindications(req.user!.id, names ?? []);
     }
 }

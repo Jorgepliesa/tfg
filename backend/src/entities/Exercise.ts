@@ -13,6 +13,7 @@ import { Equipment } from "./Equipment";
 import { Plan } from "./Plan";
 import { MuscleGroup } from "./MuscleGroup";
 import { MeasurementParameter } from "./MeasurementParameter";
+import { Contraindication } from "./Contraindication";
 
 export enum ExerciseCategory {
   AEROBIC = "aerobic",
@@ -31,16 +32,16 @@ export enum ExerciseDifficulty {
 @Entity("exercise", { schema: "public" })
 export class Exercise {
 
-  @PrimaryColumn({type: "varchar", name: "name", length: 255 })
+  @PrimaryColumn({ type: "varchar", name: "name", length: 255 })
   name: string;
 
-  @Column({type: "text", name: "description" })
+  @Column({ type: "text", name: "description" })
   description: string;
 
-  @Column({type: "enum", name: "category", enum: ExerciseCategory })
+  @Column({ type: "enum", name: "category", enum: ExerciseCategory })
   category: ExerciseCategory;
 
-  @Column({type: "enum", name: "difficulty", enum: ExerciseDifficulty })
+  @Column({ type: "enum", name: "difficulty", enum: ExerciseDifficulty })
   difficulty: ExerciseDifficulty;
 
   @ManyToMany(() => Audiovisual, (audiovisual) => audiovisual.exercises)
@@ -82,4 +83,7 @@ export class Exercise {
     schema: "public",
   })
   measurementParameters: MeasurementParameter[];
+
+  @ManyToMany(() => Contraindication, (contraindication) => contraindication.exercises)
+  contraindications: Contraindication[];
 }

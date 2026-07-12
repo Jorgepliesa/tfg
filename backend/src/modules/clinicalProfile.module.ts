@@ -9,10 +9,11 @@ import { WellnessTest } from '../entities/WellnessTest';
 import { Execute } from '../entities/Execute';
 import { UserAccount } from '../entities/UserAccount';
 import { SupervisorNote } from '../entities/SupervisorNote';
+import { Contraindication } from '../entities/Contraindication';
 
 @Module({
     imports: [TypeOrmModule.forFeature([
-        ClinicalProfile, Session, Steps, WellnessTest, Execute, UserAccount, SupervisorNote,
+        ClinicalProfile, Session, Steps, WellnessTest, Execute, UserAccount, SupervisorNote, Contraindication
     ])],
     controllers: [ClinicalProfileController],
     providers: [ClinicalProfileService],
