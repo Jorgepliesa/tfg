@@ -4,7 +4,6 @@ import {
     Delete,
     Param,
     BadRequestException,
-    Put,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags, ApiResponse, ApiQuery, ApiBody } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../utils/jwt-auth.guard';
@@ -82,9 +81,9 @@ export class ClinicalProfileController {
         return this.service.getUserContraindications(req.user!.id);
     }
 
-    @Put('contraindications')
+    @Patch('contraindications')
     @ApiBody({ schema: { example: { names: ['Neuropatía'] } } })
-    async setContraindications(@Req() req: Request, @Body('names') names: string[]) {
-        return this.service.setContraindications(req.user!.id, names ?? []);
+    async updateContraindications(@Req() req: Request, @Body('names') names: string[]) {
+        return this.service.updateContraindications(req.user!.id, names ?? []);
     }
 }

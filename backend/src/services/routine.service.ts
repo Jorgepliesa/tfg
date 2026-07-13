@@ -1,11 +1,11 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Between, Repository } from 'typeorm';
+import { Between, In, Repository } from 'typeorm';
 import { Routine, Difficulty } from '../entities/Routine';
 import { Plan } from '../entities/Plan';
 import { Exercise, ExerciseCategory, ExerciseDifficulty } from '../entities/Exercise';
 import { Session } from '../entities/Session';
-import { RoutineDetailsDto, ExerciseInRoutineDto, RoutineCategoryDto, RoutineListDto } from '../dtos/routine.dto';
+import { RoutineDetailsDto, ExerciseInRoutineDto, RoutineCategoryDto, RoutineListDto, RoutineCreateDto, RoutineForkDto } from '../dtos/routine.dto';
 import { Execute } from '../entities/Execute';
 import { WellnessTest, WellnessTestType } from '../entities/WellnessTest';
 import { UserAccount } from '../entities/UserAccount';
@@ -46,31 +46,173 @@ export class RoutineService {
 
 
   /**
-   * Get all available routine categories
+   * Catálogo completo de ejercicios para el constructor de rutinas del supervisor,
+   * marcando cuáles están contraindicados para el usuario actual (solo aviso, no bloqueo).
    */
-  /*async getCategories(): Promise<RoutineCategoryDto[]> {
+  async getExerciseCatalog(userId: number): Promise<{
+    name: string; description: string; category: string; difficulty: string; isContraindicated: boolean;
+  }[]> {
+    const exercises = await this.exerciseRepository.find({ relations: ['contraindications'] });
+    const contraindicationNames = await this.getUserContraindications(userId);
+
+    return exercises.map((ex) => ({
+      name: ex.name,
+      description: ex.description,
+      category: ex.category,
+      difficulty: ex.difficulty,
+      isContraindicated: (ex.contraindications || []).some((c) => contraindicationNames.has(c.name)),
+    }));
+  }
+
+  /**
+   * Rutinas visibles para el usuario (genéricas + personales), con indicador de si es personal.
+   */
+  async getRoutinesForUser(userId: number): Promise<(RoutineListDto & { isPersonal: boolean })[]> {
     const routines = await this.routineRepository.find({
       relations: ['plans', 'plans.exerciseEntity'],
     });
 
-    const categoryMap = new Map<string, Set<string>>();
+    return routines
+      .filter((r) => r.assignedUserId === null || r.assignedUserId === userId)
+      .map((r) => {
+        const plans = r.plans || [];
+        const difficulties = new Set(plans.map((p) => p.exerciseEntity.difficulty));
+        return {
+          name: r.name,
+          exerciseCount: plans.length,
+          category: r.category,
+          difficulty: Array.from(difficulties).join(', ') || r.difficulty,
+          isPersonal: r.assignedUserId === userId,
+        };
+      });
+  }
 
-    for (const routine of routines) {
-      for (const plan of routine.plans) {
-        const category = plan.exerciseEntity.category;
-        if (!categoryMap.has(category)) {
-          categoryMap.set(category, new Set());
-        }
-        categoryMap.get(category).add(routine.name);
-      }
+  /**
+   * Detalle de una rutina para EDITAR (sin filtrar por contraindicaciones —
+   * el supervisor debe ver todo y decidir; se marca cada ejercicio contraindicado
+   * como aviso visual en el frontend).
+   */
+  async getRoutineForEditing(routineName: string, userId: number): Promise<{
+    routineName: string;
+    category: string;
+    difficulty: string;
+    isPersonal: boolean;
+    exercises: (ExerciseInRoutineDto & { isContraindicated: boolean })[];
+  }> {
+    const routine = await this.routineRepository.findOne({ where: { name: routineName } });
+    if (!routine) throw new NotFoundException(`Routine "${routineName}" not found`);
+
+    const exercisesRaw = await this.planRepository.createQueryBuilder('plan')
+      .innerJoin('plan.exerciseEntity', 'exercise')
+      .where('plan.routine = :routineName', { routineName })
+      .select([
+        'plan.exercise AS "exerciseName"',
+        'exercise.description AS "description"',
+        'exercise.category AS "category"',
+        'exercise.difficulty AS "difficulty"',
+        'plan.num_reps AS "numReps"',
+        'plan.num_series AS "numSeries"',
+        'plan.duration AS "duration"',
+        'plan.rest AS "rest"',
+      ])
+      .getRawMany();
+
+    const contraindicationNames = await this.getUserContraindications(userId);
+    let restrictedSet = new Set<string>();
+    if (contraindicationNames.size > 0) {
+      const restrictedRows = await this.exerciseRepository
+        .createQueryBuilder('exercise')
+        .innerJoin('exercise.contraindications', 'c')
+        .where('c.name IN (:...names)', { names: Array.from(contraindicationNames) })
+        .select('exercise.name', 'name')
+        .getRawMany();
+      restrictedSet = new Set(restrictedRows.map((r) => r.name));
     }
 
-    return Array.from(categoryMap.entries()).map(([category, routines]) => ({
-      name: category,
-      routineCount: routines.size,
-    }));
+    return {
+      routineName: routine.name,
+      category: routine.category,
+      difficulty: routine.difficulty,
+      isPersonal: routine.assignedUserId === userId,
+      exercises: exercisesRaw.map((e) => ({ ...e, isContraindicated: restrictedSet.has(e.exerciseName) })),
+    };
   }
-*/
+
+  /**
+   * Crea una rutina personal desde cero, asignada al usuario actual.
+   */
+  async createPersonalRoutine(
+    userId: number,
+    dto: RoutineCreateDto,
+  ): Promise<{ routineName: string; category: string; difficulty: string }> {
+    const existing = await this.routineRepository.findOne({ where: { name: dto.name } });
+    if (existing) {
+      throw new BadRequestException(`A routine named "${dto.name}" already exists`);
+    }
+
+    const exerciseNames = dto.exercises.map((e) => e.exerciseName);
+    const foundExercises = await this.exerciseRepository.find({ where: { name: In(exerciseNames) } });
+    if (foundExercises.length !== new Set(exerciseNames).size) {
+      throw new BadRequestException('One or more exercises do not exist');
+    }
+
+    const routine = this.routineRepository.create({
+      name: dto.name,
+      category: dto.category,
+      difficulty: dto.difficulty,
+      assignedUserId: userId,
+    });
+    await this.routineRepository.save(routine);
+
+    const plans = dto.exercises.map((e) =>
+      this.planRepository.create({
+        routine: routine.name,
+        exercise: e.exerciseName,
+        numReps: e.numReps,
+        numSeries: e.numSeries,
+        duration: e.duration.toString(),
+        rest: e.rest,
+      }),
+    );
+    await this.planRepository.save(plans);
+
+    return { routineName: routine.name, category: routine.category, difficulty: routine.difficulty };
+  }
+
+  /**
+   * "Guardar como nueva": parte de una rutina existente (genérica o personal)
+   * y crea una rutina personal NUEVA con los ajustes del supervisor.
+   * Nunca modifica la rutina original.
+   */
+  async forkRoutine(
+    userId: number,
+    sourceRoutineName: string,
+    dto: RoutineForkDto,
+  ): Promise<{ routineName: string; category: string; difficulty: string }> {
+    const source = await this.routineRepository.findOne({ where: { name: sourceRoutineName } });
+    if (!source) throw new NotFoundException(`Routine "${sourceRoutineName}" not found`);
+
+    return this.createPersonalRoutine(userId, {
+      name: dto.newName,
+      category: dto.category ?? source.category,
+      difficulty: dto.difficulty ?? source.difficulty,
+      exercises: dto.exercises,
+    });
+  }
+
+  /**
+   * Elimina una rutina personal (nunca una genérica).
+   */
+  async deletePersonalRoutine(userId: number, routineName: string): Promise<void> {
+    const routine = await this.routineRepository.findOne({ where: { name: routineName } });
+    if (!routine) throw new NotFoundException('Routine not found');
+    if (routine.assignedUserId !== userId) {
+      throw new BadRequestException('Cannot delete a routine that is not personally assigned to this user');
+    }
+    await this.planRepository.delete({ routine: routineName });
+    await this.routineRepository.remove(routine);
+  }
+
   /**
    * Get all routines (with basic info) OLD
    */
@@ -274,13 +416,13 @@ export class RoutineService {
       relations: ['plans', 'plans.exerciseEntity', 'plans.exerciseEntity.equipment', 'plans.exerciseEntity.contraindications'],
     });
 
-    /*const visibleRoutines = routines.filter(
+    const visibleRoutines = routines.filter(
       (r) => r.assignedUserId === null || r.assignedUserId === userId,
     );
 
     if (visibleRoutines.length === 0) {
       throw new NotFoundException('No routines available for this user');
-    }*/
+    }
 
     const withUsage = routines.map((r) => ({
       routine: r,

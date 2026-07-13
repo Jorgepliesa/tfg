@@ -237,7 +237,7 @@ export class ClinicalProfileService {
         return profile?.contraindications ?? [];
     }
 
-    async setContraindications(userId: number, names: string[]): Promise<Contraindication[]> {
+    async updateContraindications(userId: number, names: string[]): Promise<Contraindication[]> {
         const user = await this.userRepository.findOne({ where: { id: userId } });
         if (!user) throw new NotFoundException('User not found');
 

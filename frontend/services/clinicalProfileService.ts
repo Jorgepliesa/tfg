@@ -24,4 +24,16 @@ export const clinicalProfileService = {
     async deleteNote(date: string) {
         await api.delete(`/clinical-profile/notes/${encodeURIComponent(date)}`);
     },
+    async getContraindicationCatalog() {
+        const response = await api.get('/clinical-profile/contraindications/catalog');
+        return response.data;
+    },
+    async getContraindications() {
+        const response = await api.get('/clinical-profile/contraindications');
+        return response.data;
+    },
+    async updateContraindications(names: string[]) {
+        const response = await api.patch('/clinical-profile/contraindications', { names });
+        return response.data;
+    },
 };

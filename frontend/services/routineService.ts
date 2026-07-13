@@ -37,4 +37,28 @@ export const routineService = {
       throw error;
     }
   },
+
+  async getExerciseCatalog() {
+    const response = await api.get('/routine/exercises/catalog');
+    return response.data;
+  },
+  async getMyRoutines() {
+    const response = await api.get('/routine/mine');
+    return response.data;
+  },
+  async getRoutineForEditing(routineName: string) {
+    const response = await api.get(`/routine/${encodeURIComponent(routineName)}/edit-view`);
+    return response.data;
+  },
+  async createRoutine(dto: { name: string; category: string; difficulty: string; exercises: any[] }) {
+    const response = await api.post('/routine', dto);
+    return response.data;
+  },
+  async forkRoutine(sourceRoutineName: string, dto: { newName: string; category?: string; difficulty?: string; exercises: any[] }) {
+    const response = await api.post(`/routine/${encodeURIComponent(sourceRoutineName)}/fork`, dto);
+    return response.data;
+  },
+  async deleteRoutine(routineName: string) {
+    await api.delete(`/routine/${encodeURIComponent(routineName)}`);
+  },
 };

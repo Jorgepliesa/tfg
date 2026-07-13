@@ -1,5 +1,8 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { ExerciseCategory, ExerciseDifficulty } from '../entities/Exercise';
+import { Type } from 'class-transformer';
+import { IsString, IsNotEmpty, IsInt, Min, Max, IsNumber, IsEnum, IsArray, ArrayMinSize, ValidateNested, IsOptional } from 'class-validator';
+import { Category, Difficulty } from '../entities/Routine';
 
 export class ExerciseInRoutineDto {
   @ApiProperty({
@@ -117,4 +120,66 @@ export class RoutineListDto {
     description: 'Difficulty level',
   })
   difficulty: string;
+}
+
+export class RoutineExercisePlanDto {
+  @ApiProperty({ example: 'Sentadilla con apoyo' })
+  @IsString() @IsNotEmpty()
+  exerciseName: string;
+
+  @ApiProperty({ example: 10 })
+  @IsInt() @Min(1) @Max(999)
+  numReps: number;
+
+  @ApiProperty({ example: 3 })
+  @IsInt() @Min(1) @Max(99)
+  numSeries: number;
+
+  @ApiProperty({ example: 3, description: 'Duración en minutos' })
+  @IsNumber() @Min(0.1) @Max(1439)
+  duration: number;
+
+  @ApiProperty({ example: 60, description: 'Descanso en segundos' })
+  @IsInt() @Min(0) @Max(3599)
+  rest: number;
+}
+
+export class RoutineCreateDto {
+  @ApiProperty({ example: 'Fuerza Básica (ajustada)' })
+  @IsString() @IsNotEmpty()
+  name: string;
+
+  @ApiProperty({ enum: Category })
+  @IsEnum(Category)
+  category: Category;
+
+  @ApiProperty({ enum: Difficulty })
+  @IsEnum(Difficulty)
+  difficulty: Difficulty;
+
+  @ApiProperty({ type: [RoutineExercisePlanDto] })
+  @IsArray() @ArrayMinSize(1)
+  @ValidateNested({ each: true })
+  @Type(() => RoutineExercisePlanDto)
+  exercises: RoutineExercisePlanDto[];
+}
+
+export class RoutineForkDto {
+  @ApiProperty({ example: 'Fuerza Básica (ajustada)' })
+  @IsString() @IsNotEmpty()
+  newName: string;
+
+  @ApiProperty({ enum: Category, required: false })
+  @IsOptional() @IsEnum(Category)
+  category?: Category;
+
+  @ApiProperty({ enum: Difficulty, required: false })
+  @IsOptional() @IsEnum(Difficulty)
+  difficulty?: Difficulty;
+
+  @ApiProperty({ type: [RoutineExercisePlanDto] })
+  @IsArray() @ArrayMinSize(1)
+  @ValidateNested({ each: true })
+  @Type(() => RoutineExercisePlanDto)
+  exercises: RoutineExercisePlanDto[];
 }

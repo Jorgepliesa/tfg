@@ -1,5 +1,5 @@
-import { Controller, Get, Query, UseGuards, Req, Param } from '@nestjs/common';
-import { ApiBearerAuth, ApiResponse, ApiTags, ApiQuery } from '@nestjs/swagger';
+import { Controller, Get, Query, UseGuards, Req, Param, Body, Delete, Post } from '@nestjs/common';
+import { ApiBearerAuth, ApiResponse, ApiTags, ApiQuery, ApiBody } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../utils/jwt-auth.guard';
 import { RoutineService } from '../services/routine.service';
 import {
@@ -7,6 +7,8 @@ import {
   RoutineCategoryDto,
   RoutineListDto,
   ExerciseInRoutineDto,
+  RoutineForkDto,
+  RoutineCreateDto,
 } from '../dtos/routine.dto';
 import { ExerciseCategory } from '../entities/Exercise';
 import type { Request } from 'express';
@@ -17,22 +19,6 @@ import type { Request } from 'express';
 @ApiBearerAuth('JWT-auth')
 export class RoutineController {
   constructor(private routineService: RoutineService) { }
-
-  /** No me hace falta saber las categorias
-   * GET /routine/categories
-   * Get all available routine categories
-   */
-  /*@Get('categories')
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth('JWT-auth')
-  @ApiResponse({
-    status: 200,
-    description: 'List of available routine categories',
-    type: [RoutineCategoryDto],
-  })
-  async getCategories(): Promise<RoutineCategoryDto[]> {
-    return this.routineService.getCategories();
-  }*/
 
   /**
    * GET /routine
@@ -116,6 +102,45 @@ export class RoutineController {
   ): Promise<{ routineName: string; category: string; difficulty: string }> {
     const hasEquipmentBool = hasEquipment === 'true' || hasEquipment === '1';
     return this.routineService.recommendRoutine(req.user!.id, hasEquipmentBool);
+  }
+
+  @Get('exercises/catalog')
+  @ApiResponse({ status: 200, description: 'Catálogo completo de ejercicios disponibles' })
+  async getExerciseCatalog(@Req() req: Request) {
+    return this.routineService.getExerciseCatalog(req.user!.id);
+  }
+
+  @Get('mine')
+  @ApiResponse({ status: 200, description: 'Rutinas visibles para el usuario (genéricas + personales)' })
+  async getMyRoutines(@Req() req: Request) {
+    return this.routineService.getRoutinesForUser(req.user!.id);
+  }
+
+  @Get(':name/edit-view')
+  @ApiResponse({ status: 200, description: 'Detalle de una rutina para edición, sin filtrar por contraindicaciones' })
+  async getRoutineForEditing(@Req() req: Request, @Param('name') name: string) {
+    return this.routineService.getRoutineForEditing(name, req.user!.id);
+  }
+
+  @Post()
+  @ApiBody({ type: RoutineCreateDto })
+  @ApiResponse({ status: 201, description: 'Rutina personal creada desde cero' })
+  async createRoutine(@Req() req: Request, @Body() dto: RoutineCreateDto) {
+    return this.routineService.createPersonalRoutine(req.user!.id, dto);
+  }
+
+  @Post(':name/fork')
+  @ApiBody({ type: RoutineForkDto })
+  @ApiResponse({ status: 201, description: 'Rutina personal creada a partir de otra existente' })
+  async forkRoutine(@Req() req: Request, @Param('name') name: string, @Body() dto: RoutineForkDto) {
+    return this.routineService.forkRoutine(req.user!.id, name, dto);
+  }
+
+  @Delete(':name')
+  @ApiResponse({ status: 200, description: 'Rutina personal eliminada' })
+  async deleteRoutine(@Req() req: Request, @Param('name') name: string) {
+    await this.routineService.deletePersonalRoutine(req.user!.id, name);
+    return { success: true };
   }
 
   /**

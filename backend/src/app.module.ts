@@ -39,6 +39,7 @@ import { ChallengeModule } from './modules/coopChallenge.module';
 import { ClinicalProfile } from './entities/ClinicalProfile';
 import { ClinicalProfileModule } from './modules/clinicalProfile.module';
 import { SupervisorNote } from './entities/SupervisorNote';
+import { Contraindication } from './entities/Contraindication';
 
 // Importar entidades omop
 import { OmopMeasurement } from './entities/omop/OmopMeasurement';
@@ -89,6 +90,7 @@ import { OmopDailySummary } from './entities/omop/OmopDailySummary';
         MeasurementParameter,
         ClinicalProfile,
         SupervisorNote,
+        Contraindication,
       ],
       synchronize: false, // ¡IMPORTANTE! false en producción para no perder datos TODO
       logging: process.env.NODE_ENV === 'development',

@@ -10,9 +10,10 @@ import { Execute } from '../entities/Execute';
 import { WellnessTest } from '../entities/WellnessTest';
 import { ClinicalProfile } from '../entities/ClinicalProfile';
 import { Contraindication } from '../entities/Contraindication';
+import { UserAccount } from '../entities/UserAccount';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Routine, Plan, Exercise, Session, WellnessTest, Execute, ClinicalProfile, Contraindication])],
+  imports: [TypeOrmModule.forFeature([Routine, Plan, Exercise, Session, WellnessTest, Execute, ClinicalProfile, Contraindication, UserAccount])],
   providers: [RoutineService],
   controllers: [RoutineController],
 })

@@ -10,6 +10,8 @@ import { useEffect, useState } from 'react';
 import { clinicalProfileService } from '@/services/clinicalProfileService';
 import { exportDashboardPDF } from '@/services/pdfExportService';
 import api from '@/services/api';
+import { Contraindication } from '../../backend/src/entities/Contraindication';
+import { routineService } from '@/services/routineService';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CONTENT_WIDTH = Math.min(SCREEN_WIDTH, 480); // cap en tablet
@@ -41,10 +43,33 @@ interface DashboardData {
         content: string;
         date: string;
     }[];
+    contraindications: {
+        name: string;
+        description: string | null;
+    }[];
+}
+
+interface UserRoutine {
+    name: string;
+    exerciseCount: number;
+    category: string;
+    difficulty: string;
+    isPersonal: boolean;
 }
 
 const GENDER_LABEL: Record<string, string> = {
     male: 'Masculino', female: 'Femenino', other: 'Otro',
+};
+
+const CONTRAINDICATION_CATEGORY_LABEL: Record<string, string> = {
+    upper_limb: 'Tren superior',
+    lower_limb: 'Tren inferior',
+    vision: 'Visión',
+    hearing: 'Audición',
+    balance: 'Equilibrio',
+    neuropathy: 'Neuropatía',
+    cardiotoxicity: 'Cardiotoxicidad severa',
+    osteoporosis: 'Osteoporosis severa',
 };
 
 const CATEGORY_LABEL: Record<string, string> = {
@@ -58,8 +83,8 @@ const CATEGORY_COLOR: Record<string, string> = {
 };
 
 const WELLNESS_COLOR = (val: number) => {
-    if (val <= 2) return '#2D9E75';
-    if (val <= 3.5) return '#E07B54';
+    if (val >= 3.5) return '#2D9E75';
+    if (val < 3.5) return '#E07B54';
     return '#E74C3C';
 };
 
@@ -240,13 +265,15 @@ function StreakRow({ streak }: { streak: number }) {
 function EditProfileModal({
     visible,
     initial,
+    initialContraindications,
     onClose,
     onSave,
 }: {
     visible: boolean;
     initial: DashboardData['profile'];
+    initialContraindications: DashboardData['contraindications'];
     onClose: () => void;
-    onSave: (data: any) => Promise<void>;
+    onSave: (data: any, contraindicationNames: string[]) => Promise<void>;
 }) {
     const [form, setForm] = useState({
         birthDate: initial?.birthDate ?? '',
@@ -265,6 +292,32 @@ function EditProfileModal({
         hospital: initial?.hospital ?? '',
     });
     const [saving, setSaving] = useState(false);
+
+    const [catalog, setCatalog] = useState<DashboardData['contraindications']>([]);
+    const [selectedContraindications, setSelectedContraindications] = useState<Set<string>>(
+        new Set(initialContraindications.map(c => c.name))
+    );
+
+    useEffect(() => {
+        if (!visible) return;
+        setSelectedContraindications(new Set(initialContraindications.map(c => c.name)));
+        clinicalProfileService.getContraindicationCatalog()
+            .then(setCatalog)
+            .catch(() => Alert.alert('Error', 'No se pudo cargar el catálogo de contraindicaciones'));
+    }, [visible]);
+
+    const toggleContraindication = (name: string) => {
+        setSelectedContraindications(prev => {
+            const next = new Set(prev);
+            next.has(name) ? next.delete(name) : next.add(name);
+            return next;
+        });
+    };
+
+    const groupedCatalog = catalog.reduce<Record<string, DashboardData['contraindications']>>((acc, c) => {
+        (acc[c.name] ??= []).push(c);
+        return acc;
+    }, {});
 
     const field = (label: string, key: keyof typeof form, keyboard: any = 'default') => (
         <View style={styles.formField}>
@@ -298,7 +351,7 @@ function EditProfileModal({
                 diagnosis: form.diagnosis,
                 treatmentEndDate: form.treatmentEndDate,
                 hospital: form.hospital,
-            });
+            }, Array.from(selectedContraindications));
             onClose();
         } catch {
             Alert.alert('Error', 'No se pudieron guardar los cambios');
@@ -369,6 +422,48 @@ function EditProfileModal({
                     {field('Diagnóstico', 'diagnosis')}
                     {field('Fin tratamiento (YYYY-MM-DD)', 'treatmentEndDate')}
                     {field('Hospital', 'hospital')}
+
+                    {/* ── Contraindicaciones ──────────────────────────────────────────── */}
+                    <View style={{ marginTop: 12, marginBottom: 8 }}>
+                        <Text style={styles.formLabel}>Contraindicaciones</Text>
+                        <Text style={{ fontSize: 12, color: '#888', marginTop: 4, marginBottom: 12 }}>
+                            Los ejercicios contraindicados se excluirán automáticamente de las sesiones.
+                        </Text>
+                    </View>
+                    {Object.entries(groupedCatalog).map(([category, items]) => (
+                        <View key={category} style={{ marginBottom: 16 }}>
+                            <Text style={{ fontSize: 11, fontWeight: '700', color: '#888', marginBottom: 8, textTransform: 'uppercase' }}>
+                                {CONTRAINDICATION_CATEGORY_LABEL[category] ?? category}
+                            </Text>
+                            {items.map(item => {
+                                const isSelected = selectedContraindications.has(item.name);
+                                return (
+                                    <Pressable
+                                        key={item.name}
+                                        style={{
+                                            flexDirection: 'row', alignItems: 'center', gap: 12,
+                                            padding: 12, borderRadius: 12, marginBottom: 8,
+                                            backgroundColor: isSelected ? '#F0EDFF' : '#fff',
+                                            borderWidth: 1, borderColor: isSelected ? '#6B5B95' : '#E0E0E0',
+                                        }}
+                                        onPress={() => toggleContraindication(item.name)}
+                                    >
+                                        <MaterialIcons
+                                            name={isSelected ? 'check-box' : 'check-box-outline-blank'}
+                                            size={22}
+                                            color={isSelected ? '#6B5B95' : '#ccc'}
+                                        />
+                                        <View style={{ flex: 1 }}>
+                                            <Text style={{ fontSize: 14, fontWeight: '600', color: '#2D3E50' }}>{item.name}</Text>
+                                            {item.description && (
+                                                <Text style={{ fontSize: 12, color: '#888', marginTop: 2 }}>{item.description}</Text>
+                                            )}
+                                        </View>
+                                    </Pressable>
+                                );
+                            })}
+                        </View>
+                    ))}
                 </ScrollView>
             </SafeAreaView>
         </Modal>
@@ -556,17 +651,24 @@ export default function ParentalDashboard() {
     const [showEdit, setShowEdit] = useState(false);
     const [userId, setUserId] = useState<number>(0);
     const [exporting, setExporting] = useState(false);
+    const [contraindications, setContraindications] = useState<{ name: string; description: string | null }[]>([]);
+    const [myRoutines, setMyRoutines] = useState<UserRoutine[]>([]);
+
     useEffect(() => { loadDashboard(); }, []);
 
     const loadDashboard = async () => {
         try {
             setLoading(true);
-            const [d, me] = await Promise.all([
+            const [d, me, myContraindications, myRoutines] = await Promise.all([
                 clinicalProfileService.getDashboard(),
                 api.get('/user/me'),
+                clinicalProfileService.getContraindications(),
+                routineService.getMyRoutines(),
             ]);
             setData(d);
             setUserId(me.data.id);
+            setContraindications(myContraindications);
+            setMyRoutines(myRoutines);
         } catch (e) {
             Alert.alert('Error', 'No se pudo cargar el dashboard');
         } finally {
@@ -576,7 +678,7 @@ export default function ParentalDashboard() {
 
     const handleSaveProfile = async (formData: any) => {
         await clinicalProfileService.updateProfile(formData);
-        await loadDashboard();
+        await clinicalProfileService.updateContraindications(contraindications.map(c => c.name));
     };
 
     const handleExport = async () => {
@@ -749,12 +851,39 @@ export default function ParentalDashboard() {
                     />
                 </View>
 
+                {/* Mis rutinas */}
+                <View style={styles.section}>
+                    <View style={styles.sectionTitleRow}>
+                        <SectionTitle icon="fitness-center" label="Rutinas" />
+                        <Pressable style={styles.editBtn} onPress={() => router.push('/routine-builder')}>
+                            <MaterialIcons name="add" size={14} color="#6B5B95" />
+                            <Text style={styles.editBtnText}>Nueva</Text>
+                        </Pressable>
+                    </View>
+                    {myRoutines.map(r => (
+                        <Card key={r.name} style={{ marginBottom: 8 }}>
+                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <View style={{ flex: 1 }}>
+                                    <Text style={{ fontSize: 14, fontWeight: '600', color: '#2D3E50' }}>{r.name}</Text>
+                                    <Text style={{ fontSize: 12, color: '#888', marginTop: 2 }}>
+                                        {r.exerciseCount} ejercicios · {r.isPersonal ? 'Personalizada' : 'General'}
+                                    </Text>
+                                </View>
+                                <Pressable onPress={() => router.push({ pathname: '/routine-builder', params: { sourceRoutine: r.name } })}>
+                                    <MaterialIcons name="edit" size={20} color="#6B5B95" />
+                                </Pressable>
+                            </View>
+                        </Card>
+                    ))}
+                </View>
+
                 <View style={{ height: 40 }} />
             </ScrollView>
 
             <EditProfileModal
                 visible={showEdit}
                 initial={profile}
+                initialContraindications={contraindications}
                 onClose={() => setShowEdit(false)}
                 onSave={handleSaveProfile}
             />
