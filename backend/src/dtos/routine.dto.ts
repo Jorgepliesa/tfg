@@ -45,15 +45,23 @@ export class ExerciseInRoutineDto {
 
   @ApiProperty({
     example: '00:01:30',
-    description: 'Duration of the exercise',
+    description: 'The duration of the exercise, in minutes. Null if the exercise is measured only by reps.',
+    nullable: true,
   })
-  duration: string;
+  duration: string | null;
 
   @ApiProperty({
     example: 60,
     description: 'Rest time in seconds between sets',
   })
   rest: number;
+
+  @ApiProperty({
+    example: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+    description: 'URL del vídeo demostrativo del ejercicio (si existe)',
+    nullable: true,
+  })
+  videoUrl: string | null;
 }
 
 export class RoutineDetailsDto {
@@ -136,8 +144,8 @@ export class RoutineExercisePlanDto {
   numSeries: number;
 
   @ApiProperty({ example: 3, description: 'Duración en minutos' })
-  @IsNumber() @Min(0.1) @Max(1439)
-  duration: number;
+  @IsNumber() @Min(0.1) @Max(1439) @IsOptional()
+  duration?: number;
 
   @ApiProperty({ example: 60, description: 'Descanso en segundos' })
   @IsInt() @Min(0) @Max(3599)

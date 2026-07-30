@@ -6,11 +6,13 @@ import { OmopDailySummary } from '../entities/omop/OmopDailySummary';
 import { OmopSensorController } from '../controllers/omopSensor.controller';
 import { OmopSensorService } from '../services/omopSensor.service';
 import { ClinicalProfileModule } from './clinicalProfile.module';
+import { SessionModule } from './session.module';
 
 @Module({
     imports: [
         TypeOrmModule.forFeature([OmopMeasurement, OmopDailySummary], 'omop'),
         ClinicalProfileModule,
+        SessionModule
     ],
     controllers: [OmopSensorController],
     providers: [OmopSensorService],

@@ -38,5 +38,13 @@
         "description": "Improve your stability and coordination"
       }
     }
+  },
+  "sessionSummary": {
+    "title": "Session completed!",
+    "subtitle": "You finished {{routine}}. Great job!",
+    "time": "Time",
+    "points": "Points",
+    "coopBonus": "Bonus for doing it accompanied included",
+    "finish": "Finish"
   }
 }

@@ -1,6 +1,5 @@
 import { avatarService } from "@/services/avatarService";
-import { UserService } from "@/services/userService";
-import { sessionService } from "@/services/sessionService";
+import { omopSensorService } from "@/services/omopSensorService"; import { sessionService } from "@/services/sessionService";
 import { shopService } from "@/services/shopService";
 import { challengeService, CoopChallengeData } from "@/services/coopChallengeService";
 import MaterialIcons from "@expo/vector-icons/build/MaterialIcons";
@@ -101,7 +100,7 @@ export default function Home() {
       setLoading(true);
       const [fitnessPoints, steps] = await Promise.all([
         avatarService.getFitnessPoints(),
-        UserService.getStepCount(),
+        omopSensorService.getTodaySteps(),
       ]);
       setFp(fitnessPoints);
       setSteps(steps);

@@ -20,6 +20,8 @@ export enum ExerciseCategory {
   STRENGTH = "strength",
   FLEXIBILITY = "flexibility",
   BALANCE = "balance",
+  WARMUP = "warmup",
+  STRETCHING = "stretching",
 }
 
 export enum ExerciseDifficulty {

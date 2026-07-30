@@ -13,5 +13,14 @@ export const avatarService = {
             console.error('Error getting fitness points:', error);
             throw error;
         }
+    },
+    async addFitnessPoints(amount: number): Promise<{ fp: number }> {
+        try {
+            const response = await api.patch('/avatar/add-fp', { amount });
+            return response.data;
+        } catch (error) {
+            console.error('Error adding fitness points:', error);
+            throw error;
+        }
     }
 };

@@ -13,12 +13,18 @@ interface CatalogExercise {
 }
 
 interface PlanExercise {
-    exerciseName: string; numReps: number; numSeries: number; duration: number; rest: number;
+    exerciseName: string; numReps: number; numSeries: number; duration: number | null; rest: number;
 }
 
-const CATEGORY_LABEL: Record<string, string> = {
+const ROUTINE_CATEGORY_LABEL: Record<string, string> = {
     aerobic: 'Cardio', strength: 'Fuerza', flexibility: 'Flexibilidad', balance: 'Equilibrio',
 };
+
+const EXERCISE_CATEGORY_LABEL: Record<string, string> = {
+    aerobic: 'Cardio', strength: 'Fuerza', flexibility: 'Flexibilidad', balance: 'Equilibrio',
+    warmup: 'Calentamiento', stretching: 'Estiramiento',
+};
+
 const DIFFICULTY_LABEL: Record<string, string> = { easy: 'Fácil', medium: 'Medio', hard: 'Difícil' };
 
 export default function RoutineBuilder() {
@@ -52,7 +58,7 @@ export default function RoutineBuilder() {
                         exerciseName: e.exerciseName,
                         numReps: e.numReps,
                         numSeries: e.numSeries,
-                        duration: Number(e.duration),
+                        duration: e.duration !== null ? Number(e.duration) : null,
                         rest: e.rest,
                     })));
                 }
@@ -69,12 +75,33 @@ export default function RoutineBuilder() {
             setShowCatalogPicker(false);
             return;
         }
-        setPlan(prev => [...prev, { exerciseName, numReps: 10, numSeries: 3, duration: 3, rest: 60 }]);
+        setPlan(prev => [...prev, { exerciseName, numReps: 10, numSeries: 3, duration: null, rest: 60 }]);
         setShowCatalogPicker(false);
+    };
+
+    const moveExercise = (exerciseName: string, direction: -1 | 1) => {
+        setPlan(prev => {
+            const index = prev.findIndex(p => p.exerciseName === exerciseName);
+            const newIndex = index + direction;
+            if (newIndex < 0 || newIndex >= prev.length) return prev;
+            const copy = [...prev];
+            [copy[index], copy[newIndex]] = [copy[newIndex], copy[index]];
+            return copy;
+        });
     };
 
     const removeExercise = (exerciseName: string) => {
         setPlan(prev => prev.filter(p => p.exerciseName !== exerciseName));
+    };
+
+    const toggleTimed = (exerciseName: string) => {
+        setPlan(prev => prev.map(p =>
+            p.exerciseName === exerciseName ? { ...p, duration: p.duration === null ? 1 : null } : p
+        ));
+    };
+
+    const updateDuration = (exerciseName: string, value: number) => {
+        setPlan(prev => prev.map(p => p.exerciseName === exerciseName ? { ...p, duration: value } : p));
     };
 
     const updateExerciseField = (exerciseName: string, field: keyof PlanExercise, value: number) => {
@@ -91,14 +118,22 @@ export default function RoutineBuilder() {
             return;
         }
 
+        const payloadExercises = plan.map(p => ({
+            exerciseName: p.exerciseName,
+            numReps: p.numReps,
+            numSeries: p.numSeries,
+            rest: p.rest,
+            ...(p.duration !== null ? { duration: p.duration } : {}),
+        }));
+
         setSaving(true);
         try {
             if (isForking) {
                 await routineService.forkRoutine(sourceRoutine!, {
-                    newName: name.trim(), category, difficulty, exercises: plan,
+                    newName: name.trim(), category, difficulty, exercises: payloadExercises,
                 });
             } else {
-                await routineService.createRoutine({ name: name.trim(), category, difficulty, exercises: plan });
+                await routineService.createRoutine({ name: name.trim(), category, difficulty, exercises: payloadExercises });
             }
             router.back();
         } catch (error: any) {
@@ -137,9 +172,9 @@ export default function RoutineBuilder() {
 
                 <Text style={styles.label}>Categoría</Text>
                 <View style={styles.chipRow}>
-                    {Object.keys(CATEGORY_LABEL).map(c => (
+                    {Object.keys(ROUTINE_CATEGORY_LABEL).map(c => (
                         <Pressable key={c} style={[styles.chip, category === c && styles.chipActive]} onPress={() => setCategory(c)}>
-                            <Text style={[styles.chipText, category === c && styles.chipTextActive]}>{CATEGORY_LABEL[c]}</Text>
+                            <Text style={[styles.chipText, category === c && styles.chipTextActive]}>{ROUTINE_CATEGORY_LABEL[c]}</Text>
                         </Pressable>
                     ))}
                 </View>
@@ -171,9 +206,17 @@ export default function RoutineBuilder() {
                         <View key={p.exerciseName} style={styles.exerciseCard}>
                             <View style={styles.exerciseCardHeader}>
                                 <Text style={styles.exerciseName}>{p.exerciseName}</Text>
-                                <Pressable onPress={() => removeExercise(p.exerciseName)}>
-                                    <MaterialIcons name="delete-outline" size={20} color="#E74C3C" />
-                                </Pressable>
+                                <View style={{ flexDirection: 'row', gap: 8 }}>
+                                    <Pressable onPress={() => moveExercise(p.exerciseName, -1)}>
+                                        <MaterialIcons name="arrow-upward" size={20} color="#6B5B95" />
+                                    </Pressable>
+                                    <Pressable onPress={() => moveExercise(p.exerciseName, 1)}>
+                                        <MaterialIcons name="arrow-downward" size={20} color="#6B5B95" />
+                                    </Pressable>
+                                    <Pressable onPress={() => removeExercise(p.exerciseName)}>
+                                        <MaterialIcons name="delete-outline" size={20} color="#E74C3C" />
+                                    </Pressable>
+                                </View>
                             </View>
                             {info?.isContraindicated && (
                                 <View style={styles.warningRow}>
@@ -182,10 +225,10 @@ export default function RoutineBuilder() {
                                 </View>
                             )}
                             <View style={styles.exerciseFields}>
-                                {(['numReps', 'numSeries', 'duration', 'rest'] as const).map(field => (
+                                {(['numReps', 'numSeries', 'rest'] as const).map(field => (
                                     <View key={field} style={styles.exerciseFieldBox}>
                                         <Text style={styles.exerciseFieldLabel}>
-                                            {field === 'numReps' ? 'Reps' : field === 'numSeries' ? 'Series' : field === 'duration' ? 'Min' : 'Descanso (s)'}
+                                            {field === 'numReps' ? 'Reps' : field === 'numSeries' ? 'Series' : 'Descanso (s)'}
                                         </Text>
                                         <TextInput
                                             style={styles.exerciseFieldInput}
@@ -196,6 +239,26 @@ export default function RoutineBuilder() {
                                     </View>
                                 ))}
                             </View>
+                            <Pressable style={styles.timedToggleRow} onPress={() => toggleTimed(p.exerciseName)}>
+                                <MaterialIcons
+                                    name={p.duration !== null ? 'check-box' : 'check-box-outline-blank'}
+                                    size={20}
+                                    color={p.duration !== null ? '#6B5B95' : '#ccc'}
+                                />
+                                <Text style={styles.timedToggleLabel}>Ejercicio por tiempo (con temporizador)</Text>
+                            </Pressable>
+
+                            {p.duration !== null && (
+                                <View style={[styles.exerciseFieldBox, { marginTop: 8 }]}>
+                                    <Text style={styles.exerciseFieldLabel}>Duración (min)</Text>
+                                    <TextInput
+                                        style={styles.exerciseFieldInput}
+                                        keyboardType="numeric"
+                                        value={String(p.duration)}
+                                        onChangeText={(v) => updateDuration(p.exerciseName, parseFloat(v) || 0.5)}
+                                    />
+                                </View>
+                            )}
                         </View>
                     );
                 })}
@@ -216,7 +279,7 @@ export default function RoutineBuilder() {
                                 <View style={{ flex: 1 }}>
                                     <Text style={styles.catalogItemName}>{ex.name}</Text>
                                     <Text style={styles.catalogItemMeta}>
-                                        {CATEGORY_LABEL[ex.category]} · {DIFFICULTY_LABEL[ex.difficulty]}
+                                        {EXERCISE_CATEGORY_LABEL[ex.category]} · {DIFFICULTY_LABEL[ex.difficulty]}
                                     </Text>
                                 </View>
                                 {ex.isContraindicated && <MaterialIcons name="warning" size={18} color="#E07B54" />}
@@ -282,4 +345,6 @@ const styles = StyleSheet.create({
     },
     catalogItemName: { fontSize: 14, fontWeight: '600', color: '#2D3E50' },
     catalogItemMeta: { fontSize: 12, color: '#888', marginTop: 2 },
+    timedToggleRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10 },
+    timedToggleLabel: { fontSize: 13, color: '#2D3E50', fontWeight: '500' },
 });

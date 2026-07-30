@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSession } from '../../../../context/SessionContext';
 import { useState, useEffect, useRef } from 'react';
 import { executeService } from '../../../../services/executeService';
+import YoutubePlayer from 'react-native-youtube-iframe';
 
 export default function Exercises() {
     const router = useRouter();
@@ -22,17 +23,53 @@ export default function Exercises() {
     // Ref para saber si ya navegamos, evita doble goToNext
     const navigatingRef = useRef(false);
 
+    // ── Temporizador del propio ejercicio (para ejercicios "por tiempo") ────
+    const [timeRemaining, setTimeRemaining] = useState(0);
+    const [timerRunning, setTimerRunning] = useState(false);
+
     const currentExercise = exercises[currentExerciseIndex];
+    const videoId = extractYoutubeId(currentExercise?.videoUrl);
+    const isTimed = currentExercise?.duration != null && Number(currentExercise.duration) > 0;
+
+    function extractYoutubeId(url?: string | null): string | null {
+        if (!url) return null;
+        const patterns = [
+            /(?:youtube\.com\/watch\?v=)([\w-]{11})/,
+            /(?:youtu\.be\/)([\w-]{11})/,
+            /(?:youtube\.com\/embed\/)([\w-]{11})/,
+        ];
+        for (const pattern of patterns) {
+            const match = url.match(pattern);
+            if (match) return match[1];
+        }
+        return null;
+    }
+
+    function formatCountdown(totalSeconds: number): string {
+        const m = Math.floor(totalSeconds / 60);
+        const s = totalSeconds % 60;
+        return `${m}:${s.toString().padStart(2, '0')}`;
+    }
 
     // ── Efecto 1: reset al cambiar de ejercicio ──────────────────────────────
     useEffect(() => {
         if (!currentExercise) return;
         tInitialRef.current = new Date();
         setCurrentSerie(1);
-        setRepsThisSerie(currentExercise.numReps);
         setCompletedSeries([]);
         setIsResting(false);
         navigatingRef.current = false;
+
+        const timed = currentExercise.duration != null && Number(currentExercise.duration) > 0;
+        if (timed) {
+            setTimeRemaining(Math.round(Number(currentExercise.duration) * 60));
+            setTimerRunning(true);
+            setRepsThisSerie(0);
+        } else {
+            setRepsThisSerie(currentExercise.numReps);
+            setTimeRemaining(0);
+            setTimerRunning(false);
+        }
     }, [currentExerciseIndex]);
 
     // ── Efecto 2: cuenta atrás del descanso (separado del anterior) ──────────
@@ -42,7 +79,12 @@ export default function Exercises() {
         if (restTimer <= 0) {
             // Tiempo agotado — salir del descanso y preparar siguiente serie
             setIsResting(false);
-            setRepsThisSerie(currentExercise?.numReps ?? 0);
+            if (isTimed && currentExercise) {
+                setTimeRemaining(Math.round(Number(currentExercise.duration) * 60));
+                setTimerRunning(true);
+            } else {
+                setRepsThisSerie(currentExercise?.numReps ?? 0);
+            }
             return;
         }
 
@@ -52,6 +94,21 @@ export default function Exercises() {
 
         return () => clearInterval(timer);
     }, [isResting, restTimer]);
+
+    // ── Efecto 3: cuenta atrás del propio ejercicio (si es "por tiempo") ────
+    useEffect(() => {
+        if (!isTimed || !timerRunning || isResting) return;
+
+        if (timeRemaining <= 0) {
+            setTimerRunning(false);
+            Vibration.vibrate(80);
+            handleCompleteSerie();
+            return;
+        }
+
+        const timer = setInterval(() => setTimeRemaining(prev => prev - 1), 1000);
+        return () => clearInterval(timer);
+    }, [isTimed, timerRunning, timeRemaining, isResting]);
 
     // ── animación del botón de completar rep ────────────────────────────────
     const animateTap = () => {
@@ -74,8 +131,12 @@ export default function Exercises() {
         if (savingExercise || navigatingRef.current) return;
         animateTap();
         Vibration.vibrate(40);
+        setTimerRunning(false);
 
-        const newCompleted = [...completedSeries, repsThisSerie];
+        // Para ejercicios por tiempo, la "serie completada" son las reps marcadas en el ejercicio
+        const valueForThisSerie = isTimed ? currentExercise.numReps : repsThisSerie;
+
+        const newCompleted = [...completedSeries, valueForThisSerie];
         setCompletedSeries(newCompleted);
 
         const isLastSerie = currentSerie >= currentExercise.numSeries;
@@ -95,7 +156,12 @@ export default function Exercises() {
     const handleSkipRest = () => {
         setRestTimer(0);
         setIsResting(false);
-        setRepsThisSerie(currentExercise.numReps);
+        if (isTimed && currentExercise) {
+            setTimeRemaining(Math.round(Number(currentExercise.duration) * 60));
+            setTimerRunning(true);
+        } else {
+            setRepsThisSerie(currentExercise?.numReps ?? 0);
+        }
     };
 
     // ── guardar ejercicio en backend ─────────────────────────────────────────
@@ -171,10 +237,12 @@ export default function Exercises() {
 
                     {/* Resumen de series completadas */}
                     <View style={styles.seriesCompletedRow}>
-                        {completedSeries.map((reps, i) => (
+                        {completedSeries.map((val, i) => (
                             <View key={i} style={styles.seriesBadge}>
                                 <MaterialIcons name="check" size={12} color="#2D9E75" />
-                                <Text style={styles.seriesBadgeText}>{reps} reps</Text>
+                                <Text style={styles.seriesBadgeText}>
+                                    {isTimed ? formatCountdown(Math.round(Number(currentExercise.duration) * 60)) : `${val} reps`}
+                                </Text>
                             </View>
                         ))}
                     </View>
@@ -234,8 +302,10 @@ export default function Exercises() {
                 {/* Info */}
                 <View style={styles.infoRow}>
                     <View style={styles.infoBox}>
-                        <Text style={styles.infoValue}>{currentExercise.numReps}</Text>
-                        <Text style={styles.infoLabel}>objetivo</Text>
+                        <Text style={styles.infoValue}>
+                            {isTimed ? formatCountdown(Math.round(Number(currentExercise.duration) * 60)) : currentExercise.numReps}
+                        </Text>
+                        <Text style={styles.infoLabel}>{isTimed ? 'duración' : 'objetivo'}</Text>
                     </View>
                     <View style={styles.infoSeparator} />
                     <View style={styles.infoBox}>
@@ -253,8 +323,14 @@ export default function Exercises() {
 
                 {/* Video placeholder */}
                 <View style={styles.videoContainer}>
-                    <MaterialIcons name="play-circle-outline" size={80} color="#6B5B95" />
-                    <Text style={styles.placeholder}>Video del ejercicio</Text>
+                    {videoId ? (
+                        <YoutubePlayer height={230} videoId={videoId} play={false} />
+                    ) : (
+                        <>
+                            <MaterialIcons name="play-circle-outline" size={80} color="#6B5B95" />
+                            <Text style={styles.placeholder}>Sin vídeo disponible</Text>
+                        </>
+                    )}
                 </View>
 
                 {/* Descripción */}
@@ -263,72 +339,58 @@ export default function Exercises() {
                 </View>
 
                 {/* Selector de repeticiones */}
-                <View style={styles.repsSelector}>
-                    <Pressable
-                        style={({ pressed }) => [
-                            styles.repsBtn,
-                            pressed && { opacity: 0.6 },
-                            repsThisSerie <= 0 && styles.repsBtnDisabled,
-                        ]}
-                        onPress={() => setRepsThisSerie(prev => Math.max(0, prev - 1))}
-                        disabled={repsThisSerie <= 0}
-                    >
-                        <MaterialIcons name="remove" size={28} color="#6B5B95" />
-                    </Pressable>
-
-                    <View style={styles.repsValueBox}>
-                        <Text style={styles.repsValue}>{repsThisSerie}</Text>
-                        <Text style={styles.repsLabel}>
-                            repeticiones
-                            {repsThisSerie !== currentExercise.numReps && (
-                                <Text style={styles.repsMeta}>
-                                    {' '}(objetivo: {currentExercise.numReps})
-                                </Text>
-                            )}
-                        </Text>
+                {isTimed ? (
+                    // ── Selector reemplazado por temporizador ────────────────────────
+                    <View style={styles.timerBox}>
+                        <Text style={styles.timerValue}>{formatCountdown(timeRemaining)}</Text>
+                        <Text style={styles.timerLabel}>tiempo restante</Text>
                     </View>
+                ) : (
+                    <View style={styles.repsSelector}>
+                        <Pressable
+                            style={({ pressed }) => [styles.repsBtn, pressed && { opacity: 0.6 }, repsThisSerie <= 0 && styles.repsBtnDisabled]}
+                            onPress={() => setRepsThisSerie(prev => Math.max(0, prev - 1))}
+                            disabled={repsThisSerie <= 0}
+                        >
+                            <MaterialIcons name="remove" size={28} color="#6B5B95" />
+                        </Pressable>
 
-                    <Pressable
-                        style={({ pressed }) => [
-                            styles.repsBtn,
-                            pressed && { opacity: 0.6 },
-                            // Límite máximo: no superar el objetivo
-                            repsThisSerie >= currentExercise.numReps && styles.repsBtnDisabled,
-                        ]}
-                        onPress={() => setRepsThisSerie(prev =>
-                            Math.min(prev + 1, currentExercise.numReps)
-                        )}
-                        disabled={repsThisSerie >= currentExercise.numReps}
-                    >
-                        <MaterialIcons name="add" size={28} color="#6B5B95" />
-                    </Pressable>
-                </View>
+                        <View style={styles.repsValueBox}>
+                            <Text style={styles.repsValue}>{repsThisSerie}</Text>
+                            <Text style={styles.repsLabel}>
+                                repeticiones
+                                {repsThisSerie !== currentExercise.numReps && (
+                                    <Text style={styles.repsMeta}> (objetivo: {currentExercise.numReps})</Text>
+                                )}
+                            </Text>
+                        </View>
+
+                        <Pressable
+                            style={({ pressed }) => [styles.repsBtn, pressed && { opacity: 0.6 }, repsThisSerie >= currentExercise.numReps && styles.repsBtnDisabled]}
+                            onPress={() => setRepsThisSerie(prev => Math.min(prev + 1, currentExercise.numReps))}
+                            disabled={repsThisSerie >= currentExercise.numReps}
+                        >
+                            <MaterialIcons name="add" size={28} color="#6B5B95" />
+                        </Pressable>
+                    </View>
+                )}
 
                 {/* Botón completar serie */}
-                <Animated.View style={[
-                    styles.completeBtnWrapper,
-                    { transform: [{ scale: tapScaleAnim }] },
-                ]}>
+                <Animated.View style={[styles.completeBtnWrapper, { transform: [{ scale: tapScaleAnim }] }]}>
                     <Pressable
-                        style={({ pressed }) => [
-                            styles.completeBtn,
-                            savingExercise && styles.completeBtnDisabled,
-                            pressed && { opacity: 0.85 },
-                        ]}
+                        style={({ pressed }) => [styles.completeBtn, savingExercise && styles.completeBtnDisabled, pressed && { opacity: 0.85 }]}
                         onPress={handleCompleteSerie}
                         disabled={savingExercise}
                     >
                         <MaterialIcons
-                            name={currentSerie >= currentExercise.numSeries
-                                ? 'check-circle'
-                                : 'done'}
+                            name={currentSerie >= currentExercise.numSeries ? 'check-circle' : 'done'}
                             size={28}
                             color="#fff"
                         />
                         <Text style={styles.completeBtnText}>
-                            {currentSerie >= currentExercise.numSeries
-                                ? '¡Ejercicio completado!'
-                                : `Serie ${currentSerie} completada`}
+                            {isTimed
+                                ? (currentSerie >= currentExercise.numSeries ? 'Terminar ahora' : 'Terminar serie ahora')
+                                : (currentSerie >= currentExercise.numSeries ? '¡Ejercicio completado!' : `Serie ${currentSerie} completada`)}
                         </Text>
                     </Pressable>
                 </Animated.View>
@@ -336,11 +398,11 @@ export default function Exercises() {
                 {/* Series completadas */}
                 {completedSeries.length > 0 && (
                     <View style={styles.completedSeriesRow}>
-                        {completedSeries.map((reps, i) => (
+                        {completedSeries.map((val, i) => (
                             <View key={i} style={styles.completedSerieBadge}>
                                 <MaterialIcons name="check" size={12} color="#2D9E75" />
                                 <Text style={styles.completedSerieBadgeText}>
-                                    S{i + 1}: {reps}r
+                                    S{i + 1}: {isTimed ? formatCountdown(Math.round(Number(currentExercise.duration) * 60)) : `${val}r`}
                                 </Text>
                             </View>
                         ))}
@@ -569,4 +631,12 @@ const styles = StyleSheet.create({
         borderRadius: 16, paddingHorizontal: 20, paddingVertical: 10,
     },
     skipRestText: { fontSize: 14, color: '#6B5B95', fontWeight: '500' },
+    timerBox: {
+        alignItems: 'center', justifyContent: 'center',
+        marginHorizontal: 20, marginBottom: 12,
+        backgroundColor: '#fff', borderRadius: 20, paddingVertical: 24,
+        borderWidth: 0.5, borderColor: '#E0E0E0',
+    },
+    timerValue: { fontSize: 48, fontWeight: '800', color: '#6B5B95', lineHeight: 54 },
+    timerLabel: { fontSize: 13, color: '#888', fontWeight: '600', marginTop: 4 },
 });

@@ -1,7 +1,7 @@
 CREATE TYPE item_type AS ENUM ('head', 'body','legs', 'feet', 'arms', 'accessory', 'face');
 CREATE TYPE challenge_type AS ENUM ('active', 'inactive');
 CREATE TYPE wellness_type AS ENUM ('initial', 'final');
-CREATE TYPE category_type AS ENUM ('aerobic', 'strength', 'flexibility', 'balance');
+CREATE TYPE category_type AS ENUM ('aerobic', 'strength', 'flexibility', 'balance', 'warmup', 'stretching');
 CREATE TYPE difficulty_type AS ENUM ('easy', 'medium', 'hard');
 CREATE TYPE biological_sex_type AS ENUM ('male', 'female');
 CREATE TYPE tanner_stage_type AS ENUM ('I', 'II', 'III', 'IV', 'V');
@@ -189,7 +189,7 @@ CREATE TABLE plan (
     exercise VARCHAR(255),
     num_reps INT NOT NULL,
     num_series INT NOT NULL,
-    duration NUMERIC NOT NULL, -- in minutes
+    duration NUMERIC, -- in minutes
     rest INT NOT NULL, -- in seconds
     PRIMARY KEY (routine, exercise),
     FOREIGN KEY (routine) REFERENCES Routine(name),

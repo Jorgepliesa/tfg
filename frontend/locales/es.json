@@ -64,5 +64,13 @@
       "title": "Error",
       "message": "No se pudo guardar el test inicial"
     }
+  },
+  "sessionSummary": {
+    "title": "¡Sesión completada!",
+    "subtitle": "Has terminado {{routine}}. ¡Enhorabuena!",
+    "time": "Tiempo",
+    "points": "Puntos",
+    "coopBonus": "Bonus por hacerlo acompañado incluido",
+    "finish": "Terminar"
   }
 }

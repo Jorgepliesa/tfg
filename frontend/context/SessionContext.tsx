@@ -7,8 +7,9 @@ export interface ExerciseInRoutine {
   difficulty: string;
   numReps: number;
   numSeries: number;
-  duration: string;
+  duration: string | null;
   rest: number;
+  videoUrl: string | null;
 }
 
 export interface WellnessTestData {

@@ -170,7 +170,7 @@ export class RoutineService {
         exercise: e.exerciseName,
         numReps: e.numReps,
         numSeries: e.numSeries,
-        duration: e.duration.toString(),
+        duration: e.duration != null ? e.duration.toString() : null,
         rest: e.rest,
       }),
     );
@@ -323,13 +323,27 @@ export class RoutineService {
       throw new BadRequestException(`Routine "${routineName}" has no exercises`);
     }
 
-    if (!userId) {
-      return exercisesRaw;
+    // ── Adjuntar vídeo demostrativo (primer audiovisual asociado a cada ejercicio) ──
+    const exerciseNames = exercisesRaw.map((e) => e.exerciseName);
+    const videoRows = await this.exerciseRepository.createQueryBuilder('exercise')
+      .innerJoin('exercise.audiovisuals', 'av')
+      .where('exercise.name IN (:...names)', { names: exerciseNames })
+      .select(['exercise.name AS "exerciseName"', 'av.url AS "url"'])
+      .getRawMany();
+
+    const videoByExercise = new Map<string, string>();
+    for (const row of videoRows) {
+      if (!videoByExercise.has(row.exerciseName)) videoByExercise.set(row.exerciseName, row.url);
     }
+    const withVideo = exercisesRaw.map((e) => ({
+      ...e,
+      videoUrl: videoByExercise.get(e.exerciseName) ?? null,
+    }));
+
+    if (!userId) return withVideo;
+
     const contraindicationNames = await this.getUserContraindications(userId);
-    if (contraindicationNames.size === 0) {
-      return exercisesRaw;
-    }
+    if (contraindicationNames.size === 0) return withVideo;
 
     const restrictedRows = await this.exerciseRepository
       .createQueryBuilder('exercise')
@@ -339,7 +353,7 @@ export class RoutineService {
       .getRawMany();
 
     const restrictedSet = new Set(restrictedRows.map((r) => r.name));
-    const filtered = exercisesRaw.filter((e) => !restrictedSet.has(e.exerciseName));
+    const filtered = withVideo.filter((e) => !restrictedSet.has(e.exerciseName));
 
     if (filtered.length === 0) {
       throw new BadRequestException(

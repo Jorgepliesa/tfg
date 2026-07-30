@@ -7,17 +7,20 @@ import { useTranslation } from 'react-i18next';
 import { useSession } from '../../../context/SessionContext';
 import { sessionService } from '../../../services/sessionService';
 import { wellnessTestService } from '../../../services/wellnessTestService';
+import { avatarService } from '@/services/avatarService';
 
 type CategoryType = 'pain' | 'fatigue' | 'sleepiness' | 'mood';
 
 const CATEGORIES: CategoryType[] = ['pain', 'fatigue', 'sleepiness', 'mood'];
 
+const SESSION_FP = 20;
+const COOP_BONUS_FP = 10;
 
 export default function WellnessTest() {
     const router = useRouter();
     const { type } = useLocalSearchParams();
     const { t } = useTranslation();
-    const { routineName, setInitialTest, sessionDate, setSessionDuration, isCoop } = useSession();
+    const { routineName, setInitialTest, setFinalTest, sessionDate, setSessionDuration, setFpGained, isCoop } = useSession();
     const [selectedRating, setSelectedRating] = useState<number | null>(null);
     const [categoryIndex, setCategoryIndex] = useState(0);
     const [loading, setLoading] = useState(false);
@@ -45,44 +48,67 @@ export default function WellnessTest() {
             setCategoryIndex(nextIndex);
             setSelectedRating(ratings[CATEGORIES[nextIndex]] ?? null);
         } else {
-            // Todas las categorías completadas, ir a ejercicios
-            await saveInitialTest();
+            if (type === 'final') {
+                await finishSession();
+            } else {
+                await startSessionWithInitialTest();
+            }
         }
     };
 
-    const saveInitialTest = async () => {
+    const startSessionWithInitialTest = async () => {
         try {
             setLoading(true);
 
-            const sessionResponse = await sessionService.startSession({
-                routine: routineName || 'Unknown',
-                isCoop,
-            });
-            // Guardar test inicial
-            await wellnessTestService.createTest({
+            await sessionService.startSession({ routine: routineName || 'Unknown', isCoop });
+
+            const testData = {
                 pain: ratings.pain || 3,
                 sleepiness: ratings.sleepiness || 3,
                 mood: ratings.mood || 3,
                 fatigue: ratings.fatigue || 3,
-                type: 'initial',
-            });
+            };
+            await wellnessTestService.createTest({ ...testData, type: 'initial' });
+            setInitialTest(testData);
 
-            // Guardar en contexto
-            setInitialTest({
-                pain: ratings.pain || 3,
-                sleepiness: ratings.sleepiness || 3,
-                mood: ratings.mood || 3,
-                fatigue: ratings.fatigue || 3,
-            });
-
-            // Ir a ejercicios
-            if (type === 'final') {
-                router.push('/(tabs)/home');
-            } else {
-                router.push('/(tabs)/session/exercises/exercises');
-            }
+            router.push('/(tabs)/session/exercises/exercises');
         } catch (error) {
             console.error('Error saving initial test:', error);
+            Alert.alert(t('wellnessTest.error.title'), t('wellnessTest.error.message'));
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const finishSession = async () => {
+        try {
+            setLoading(true);
+
+            const testData = {
+                pain: ratings.pain || 3,
+                sleepiness: ratings.sleepiness || 3,
+                mood: ratings.mood || 3,
+                fatigue: ratings.fatigue || 3,
+            };
+            await wellnessTestService.createTest({ ...testData, type: 'final' });
+            setFinalTest(testData);
+
+            const durationSeconds = sessionDate
+                ? Math.max(1, Math.round((Date.now() - sessionDate.getTime()) / 1000))
+                : 60;
+            const durationMinutes = Math.min(1440, Math.max(1, Math.round(durationSeconds / 60)));
+
+            await sessionService.endSession(durationMinutes);
+
+            const fpEarned = SESSION_FP + (isCoop ? COOP_BONUS_FP : 0);
+            await avatarService.addFitnessPoints(fpEarned);
+
+            setSessionDuration(durationSeconds);
+            setFpGained(fpEarned);
+
+            router.replace('/(tabs)/session/summary');
+        } catch (error) {
+            console.error('Error finishing session:', error);
             Alert.alert(t('wellnessTest.error.title'), t('wellnessTest.error.message'));
         } finally {
             setLoading(false);

@@ -150,4 +150,12 @@ export class SessionService {
             tFinal: execute.tFinal,
         };
     }
+
+    async getRecentSessions(userId: number, limit: number): Promise<Session[]> {
+        return this.sessionRepository.find({
+            where: { userId },
+            order: { date: 'DESC' },
+            take: limit,
+        });
+    }
 }

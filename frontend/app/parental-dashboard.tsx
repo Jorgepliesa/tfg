@@ -12,6 +12,7 @@ import { exportDashboardPDF } from '@/services/pdfExportService';
 import api from '@/services/api';
 import { Contraindication } from '../../backend/src/entities/Contraindication';
 import { routineService } from '@/services/routineService';
+import { omopSensorService } from '@/services/omopSensorService';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CONTENT_WIDTH = Math.min(SCREEN_WIDTH, 480); // cap en tablet
@@ -653,22 +654,25 @@ export default function ParentalDashboard() {
     const [exporting, setExporting] = useState(false);
     const [contraindications, setContraindications] = useState<{ name: string; description: string | null }[]>([]);
     const [myRoutines, setMyRoutines] = useState<UserRoutine[]>([]);
+    const [sensorSummaries, setSensorSummaries] = useState<any[]>([]);
 
     useEffect(() => { loadDashboard(); }, []);
 
     const loadDashboard = async () => {
         try {
             setLoading(true);
-            const [d, me, myContraindications, myRoutines] = await Promise.all([
+            const [d, me, myContraindications, myRoutines, summaries] = await Promise.all([
                 clinicalProfileService.getDashboard(),
                 api.get('/user/me'),
                 clinicalProfileService.getContraindications(),
                 routineService.getMyRoutines(),
+                omopSensorService.getRecentSessionsSummary(5),
             ]);
             setData(d);
             setUserId(me.data.id);
             setContraindications(myContraindications);
             setMyRoutines(myRoutines);
+            setSensorSummaries(summaries);
         } catch (e) {
             Alert.alert('Error', 'No se pudo cargar el dashboard');
         } finally {
@@ -823,6 +827,41 @@ export default function ParentalDashboard() {
                         ? <WellnessCards wellness={wellness} />
                         : <Card><Text style={styles.emptyText}>Sin datos de bienestar</Text></Card>
                     }
+                </View>
+
+                {/* Actividad cardiaca reciente (sensores) */}
+                <View style={styles.section}>
+                    <SectionTitle icon="favorite" label="Frecuencia cardiaca — últimas sesiones" />
+                    {sensorSummaries.length === 0 ? (
+                        <Card><Text style={styles.emptyText}>Sin datos de sensores todavía</Text></Card>
+                    ) : (
+                        sensorSummaries.map((s, i) => (
+                            <Card key={i} style={{ marginBottom: 8 }}>
+                                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <View style={{ flex: 1 }}>
+                                        <Text style={{ fontSize: 13, fontWeight: '600', color: '#2D3E50' }}>
+                                            {s.routine} · {new Date(s.date).toLocaleDateString('es-ES')}
+                                        </Text>
+                                        <Text style={{ fontSize: 12, color: '#888', marginTop: 2 }}>
+                                            {s.durationMinutes} min
+                                        </Text>
+                                    </View>
+                                    {s.avgHeartRate ? (
+                                        <View style={{ alignItems: 'flex-end' }}>
+                                            <Text style={{ fontSize: 16, fontWeight: '700', color: '#E74C3C' }}>
+                                                {s.avgHeartRate} bpm
+                                            </Text>
+                                            <Text style={{ fontSize: 11, color: '#888' }}>
+                                                máx. {s.maxHeartRate} bpm
+                                            </Text>
+                                        </View>
+                                    ) : (
+                                        <Text style={{ fontSize: 12, color: '#ccc' }}>Sin datos</Text>
+                                    )}
+                                </View>
+                            </Card>
+                        ))
+                    )}
                 </View>
 
                 {/* Adherencia */}
