@@ -41,6 +41,7 @@ export default function RoutineBuilder() {
     const [category, setCategory] = useState('aerobic');
     const [difficulty, setDifficulty] = useState('easy');
     const [plan, setPlan] = useState<PlanExercise[]>([]);
+    const [isPersonalSource, setIsPersonalSource] = useState(false);
 
     useEffect(() => {
         (async () => {
@@ -51,7 +52,8 @@ export default function RoutineBuilder() {
 
                 if (sourceRoutine) {
                     const source = await routineService.getRoutineForEditing(sourceRoutine);
-                    setName(`${source.routineName} (ajustada)`);
+                    setIsPersonalSource(source.isPersonal);
+                    setName(source.isPersonal ? source.routineName : `${source.routineName} (ajustada)`);
                     setCategory(source.category);
                     setDifficulty(source.difficulty);
                     setPlan(source.exercises.map((e: any) => ({
@@ -129,9 +131,15 @@ export default function RoutineBuilder() {
         setSaving(true);
         try {
             if (isForking) {
-                await routineService.forkRoutine(sourceRoutine!, {
-                    newName: name.trim(), category, difficulty, exercises: payloadExercises,
-                });
+                if (isPersonalSource) {
+                    await routineService.updateRoutine(sourceRoutine!, {
+                        category, difficulty, exercises: payloadExercises,
+                    });
+                } else {
+                    await routineService.forkRoutine(sourceRoutine!, {
+                        newName: name.trim(), category, difficulty, exercises: payloadExercises,
+                    });
+                }
             } else {
                 await routineService.createRoutine({ name: name.trim(), category, difficulty, exercises: payloadExercises });
             }
@@ -160,7 +168,9 @@ export default function RoutineBuilder() {
                 <Pressable onPress={() => router.back()}>
                     <MaterialIcons name="arrow-circle-left" size={28} color="#6B5B95" />
                 </Pressable>
-                <Text style={styles.headerTitle}>{isForking ? 'Editar como nueva' : 'Nueva rutina'}</Text>
+                <Text style={styles.headerTitle}>
+                    {!isForking ? 'Nueva rutina' : isPersonalSource ? 'Editar rutina' : 'Editar como nueva'}
+                </Text>
                 <Pressable onPress={handleSave} disabled={saving}>
                     {saving ? <ActivityIndicator size="small" color="#6B5B95" /> : <Text style={styles.saveText}>Guardar</Text>}
                 </Pressable>
@@ -168,8 +178,13 @@ export default function RoutineBuilder() {
 
             <ScrollView contentContainerStyle={{ padding: 20 }}>
                 <Text style={styles.label}>Nombre de la rutina</Text>
-                <TextInput style={styles.input} value={name} onChangeText={setName} placeholder="Ej. Fuerza para Ana" />
-
+                <TextInput
+                    style={[styles.input, isPersonalSource && { backgroundColor: '#F0F0F0', color: '#888' }]}
+                    value={name}
+                    onChangeText={isPersonalSource ? undefined : setName}
+                    editable={!isPersonalSource}
+                    placeholder="Ej. Fuerza para Ana"
+                />
                 <Text style={styles.label}>Categoría</Text>
                 <View style={styles.chipRow}>
                     {Object.keys(ROUTINE_CATEGORY_LABEL).map(c => (

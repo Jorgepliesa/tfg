@@ -37,7 +37,9 @@ CREATE TABLE Coop_challenge (
     end_date TIMESTAMPTZ NOT NULL,
     status challenge_type NOT NULL,
     total_steps INT NOT NULL,
+    memorial VARCHAR(255) UNIQUE,
     PRIMARY KEY (name),
+    FOREIGN KEY (memorial) REFERENCES Memorial(name),
     CHECK (total_steps >= 0 AND total_steps < 1000000),
     CHECK (end_date > start_date)
 );

@@ -5,7 +5,7 @@ import { Routine, Difficulty } from '../entities/Routine';
 import { Plan } from '../entities/Plan';
 import { Exercise, ExerciseCategory, ExerciseDifficulty } from '../entities/Exercise';
 import { Session } from '../entities/Session';
-import { RoutineDetailsDto, ExerciseInRoutineDto, RoutineCategoryDto, RoutineListDto, RoutineCreateDto, RoutineForkDto } from '../dtos/routine.dto';
+import { RoutineUpdateDto, ExerciseInRoutineDto, RoutineCategoryDto, RoutineListDto, RoutineCreateDto, RoutineForkDto } from '../dtos/routine.dto';
 import { Execute } from '../entities/Execute';
 import { WellnessTest, WellnessTestType } from '../entities/WellnessTest';
 import { UserAccount } from '../entities/UserAccount';
@@ -214,6 +214,47 @@ export class RoutineService {
   }
 
   /**
+ * Actualiza in-situ una rutina personal existente (nunca una genérica).
+ * Sustituye por completo su lista de ejercicios.
+ */
+  async updateRoutine(
+    userId: number,
+    routineName: string,
+    dto: RoutineUpdateDto,
+  ): Promise<{ routineName: string; category: string; difficulty: string }> {
+    const routine = await this.routineRepository.findOne({ where: { name: routineName } });
+    if (!routine) throw new NotFoundException(`Routine "${routineName}" not found`);
+    if (routine.assignedUserId !== userId) {
+      throw new BadRequestException('Only personal routines assigned to this user can be edited in place');
+    }
+
+    const exerciseNames = dto.exercises.map((e) => e.exerciseName);
+    const foundExercises = await this.exerciseRepository.find({ where: { name: In(exerciseNames) } });
+    if (foundExercises.length !== new Set(exerciseNames).size) {
+      throw new BadRequestException('One or more exercises do not exist');
+    }
+
+    routine.category = dto.category ?? routine.category;
+    routine.difficulty = dto.difficulty ?? routine.difficulty;
+    await this.routineRepository.save(routine);
+
+    await this.planRepository.delete({ routine: routine.name });
+    const plans = dto.exercises.map((e) =>
+      this.planRepository.create({
+        routine: routine.name,
+        exercise: e.exerciseName,
+        numReps: e.numReps,
+        numSeries: e.numSeries,
+        duration: e.duration != null ? e.duration.toString() : null,
+        rest: e.rest,
+      }),
+    );
+    await this.planRepository.save(plans);
+
+    return { routineName: routine.name, category: routine.category, difficulty: routine.difficulty };
+  }
+
+  /**
    * Get all routines (with basic info) OLD
    */
   async getAllRoutines(): Promise<RoutineListDto[]> {
@@ -309,6 +350,11 @@ export class RoutineService {
         'plan.duration AS "duration"',
         'plan.rest AS "rest"'
       ])
+      .orderBy( // ORDER BY PARA QUE SALGAN PRIMERO LOS CALENTAMIENTOS Y AL FINAL LOS ESTIRAMIENTOS
+        `CASE exercise.category WHEN 'warmup' THEN 0 WHEN 'stretching' THEN 2 ELSE 1 END`,
+        'ASC',
+      )
+      .addOrderBy('exercise.name', 'ASC')
       .getRawMany();
 
     if (exercisesRaw.length === 0) {

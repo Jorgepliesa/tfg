@@ -1,7 +1,6 @@
-import { Check, Column, Entity, Index, ManyToMany, ManyToOne, OneToMany, PrimaryColumn } from "typeorm";
-import { Avatar } from "./Avatar";
-import { Complete } from "./Complete";
+import { Check, Column, Entity, Index, JoinColumn, ManyToMany, ManyToOne, OneToMany, OneToOne, PrimaryColumn } from "typeorm";
 import { ApiProperty } from "@nestjs/swagger";
+import { Memorial } from "./Memorial";
 
 export enum CoopChallengeStatus {
   ACTIVE = 'active',
@@ -47,4 +46,15 @@ export class CoopChallenge {
   @Column({ type: "integer", name: "total_steps" })
   totalSteps: number;
 
+  @ApiProperty({
+    nullable: true,
+    example: 'El corazón en forma',
+    description: 'Cromo (Memorial) que se desbloquea para cada participante si el reto se completa antes de la fecha límite',
+  })
+  @Column({ type: "varchar", name: "memorial", length: 255, nullable: true })
+  memorial: string | null;
+
+  @OneToOne(() => Memorial, { nullable: true })
+  @JoinColumn([{ name: "memorial", referencedColumnName: "name" }])
+  memorialEntity?: Memorial;
 }

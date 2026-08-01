@@ -36,7 +36,7 @@ export class ClinicalProfileController {
     @Get('dashboard')
     async getDashboard(@Req() req: Request) {
         const userId = req.user!.id;
-        const [profile, stats, steps, sessions, wellness, adherence, notes] = await Promise.all([
+        const [profile, stats, steps, sessions, wellness, adherence, notes, weeklyCompletion] = await Promise.all([
             this.service.getProfile(userId),
             this.service.getDashboardStats(userId),
             this.service.getRecentSteps(userId, 14),
@@ -44,9 +44,10 @@ export class ClinicalProfileController {
             this.service.getWellnessAverage(userId),
             this.service.getAdherence(userId),
             this.service.getNotes(userId),
+            this.service.getWeeklyCompletion(userId),
         ]);
 
-        return { profile, stats, steps, sessions, wellness, adherence, notes };
+        return { profile, stats, steps, sessions, wellness, adherence, notes, weeklyCompletion };
     }
 
     @Get('steps')
@@ -85,5 +86,16 @@ export class ClinicalProfileController {
     @ApiBody({ schema: { example: { names: ['Neuropatía'] } } })
     async updateContraindications(@Req() req: Request, @Body('names') names: string[]) {
         return this.service.updateContraindications(req.user!.id, names ?? []);
+    }
+    @Get('mood-trend')
+    @ApiQuery({ name: 'limit', required: false, type: Number })
+    async getMoodTrend(@Req() req: Request, @Query('limit') limit?: number) {
+        return this.service.getMoodTrend(req.user!.id, limit ?? 14);
+    }
+
+    @Get('pre-post-comparison')
+    @ApiQuery({ name: 'limit', required: false, type: Number })
+    async getPrePostComparison(@Req() req: Request, @Query('limit') limit?: number) {
+        return this.service.getPrePostComparison(req.user!.id, limit ?? 10);
     }
 }

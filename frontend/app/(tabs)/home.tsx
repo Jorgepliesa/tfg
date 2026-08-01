@@ -335,6 +335,15 @@ export default function Home() {
                   })()}
                 </View>
 
+                {coopChallenge?.isDefeated && coopChallenge.memorial && (
+                  <View style={styles.rewardBanner}>
+                    <MaterialIcons name="auto-awesome" size={18} color="#8B6914" />
+                    <Text style={styles.rewardBannerText}>
+                      ¡Habéis ganado un cromo: {coopChallenge.memorial}!
+                    </Text>
+                  </View>
+                )}
+
                 {/* Detalles del reto y contribución */}
                 <View style={styles.infoCard}>
                   <Text style={styles.infoCardTitle}>Estadísticas del desafío </Text>
@@ -1204,4 +1213,10 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#fff',
   },
+  rewardBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: '#FFF3CD', borderRadius: 16,
+    paddingHorizontal: 14, paddingVertical: 8, marginTop: 12,
+  },
+  rewardBannerText: { fontSize: 12, fontWeight: '700', color: '#8B6914' },
 });

@@ -13,6 +13,7 @@ import api from '@/services/api';
 import { Contraindication } from '../../backend/src/entities/Contraindication';
 import { routineService } from '@/services/routineService';
 import { omopSensorService } from '@/services/omopSensorService';
+import { MiniLineChart } from '@/components/MiniLineChart';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CONTENT_WIDTH = Math.min(SCREEN_WIDTH, 480); // cap en tablet
@@ -48,6 +49,7 @@ interface DashboardData {
         name: string;
         description: string | null;
     }[];
+    weeklyCompletion: boolean[];
 }
 
 interface UserRoutine {
@@ -90,6 +92,7 @@ const WELLNESS_COLOR = (val: number) => {
 };
 
 const WELLNESS_ARROW = (val: number) => val <= 2.5 ? '↓ mejora' : val <= 3.5 ? '→ estable' : '↑ atención';
+
 
 // ─── subcomponentes ──────────────────────────────────────────────────────────
 
@@ -237,20 +240,14 @@ function DataRow({
     );
 }
 
-function StreakRow({ streak }: { streak: number }) {
+function StreakRow({ weeklyCompletion, streak }: { weeklyCompletion: boolean[], streak: number }) {
     const days = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
-    const filled = Math.min(streak, 7);
     return (
         <Card>
             <View style={styles.streakDays}>
                 {days.map((d, i) => (
-                    <View
-                        key={i}
-                        style={[styles.streakDay, i < filled ? styles.streakDayFilled : styles.streakDayEmpty]}
-                    >
-                        <Text style={[styles.streakDayText, i < filled ? styles.streakDayTextFilled : {}]}>
-                            {d}
-                        </Text>
+                    <View key={i} style={[styles.streakDay, weeklyCompletion[i] ? styles.streakDayFilled : styles.streakDayEmpty]}>
+                        <Text style={[styles.streakDayText, weeklyCompletion[i] ? styles.streakDayTextFilled : {}]}>{d}</Text>
                     </View>
                 ))}
             </View>
@@ -655,24 +652,44 @@ export default function ParentalDashboard() {
     const [contraindications, setContraindications] = useState<{ name: string; description: string | null }[]>([]);
     const [myRoutines, setMyRoutines] = useState<UserRoutine[]>([]);
     const [sensorSummaries, setSensorSummaries] = useState<any[]>([]);
+    const [moodTrend, setMoodTrend] = useState<{ date: string; mood: number }[]>([]);
+    const [prePost, setPrePost] = useState<{ metric: string; before: number; after: number }[]>([]);
+    const [sessionHeartRate, setSessionHeartRate] = useState<{ timestamp: string; value: number }[]>([]);
 
     useEffect(() => { loadDashboard(); }, []);
 
     const loadDashboard = async () => {
         try {
             setLoading(true);
-            const [d, me, myContraindications, myRoutines, summaries] = await Promise.all([
+            const [d, me, myContraindications, myRoutines, summaries, mood, comparison] = await Promise.all([
                 clinicalProfileService.getDashboard(),
                 api.get('/user/me'),
                 clinicalProfileService.getContraindications(),
                 routineService.getMyRoutines(),
                 omopSensorService.getRecentSessionsSummary(5),
+                clinicalProfileService.getMoodTrend(14),
+                clinicalProfileService.getPrePostComparison(10),
             ]);
             setData(d);
             setUserId(me.data.id);
             setContraindications(myContraindications);
             setMyRoutines(myRoutines);
             setSensorSummaries(summaries);
+            setMoodTrend(mood);
+            setPrePost(comparison);
+
+            if (summaries.length > 0 && summaries[0].avgHeartRate) {
+                try {
+                    const start = new Date(summaries[0].date);
+                    const end = new Date(start.getTime() + summaries[0].durationMinutes * 60000);
+                    const raw = await api.get('/sensors/session', {
+                        params: { start: start.toISOString(), end: end.toISOString() },
+                    });
+                    setSessionHeartRate(raw.data.heartRate ?? []);
+                } catch {
+                    setSessionHeartRate([]);
+                }
+            }
         } catch (e) {
             Alert.alert('Error', 'No se pudo cargar el dashboard');
         } finally {
@@ -696,6 +713,27 @@ export default function ParentalDashboard() {
         } finally {
             setExporting(false);
         }
+    };
+
+    const handleDeleteRoutine = (routineName: string) => {
+        Alert.alert(
+            'Eliminar rutina',
+            `¿Seguro que quieres eliminar "${routineName}"? Esta acción no se puede deshacer.`,
+            [
+                { text: 'Cancelar', style: 'cancel' },
+                {
+                    text: 'Eliminar', style: 'destructive',
+                    onPress: async () => {
+                        try {
+                            await routineService.deleteRoutine(routineName);
+                            await loadDashboard();
+                        } catch {
+                            Alert.alert('Error', 'No se pudo eliminar la rutina');
+                        }
+                    },
+                },
+            ],
+        );
     };
 
     if (loading) return (
@@ -811,7 +849,7 @@ export default function ParentalDashboard() {
                 {/* Racha semanal */}
                 <View style={styles.section}>
                     <SectionTitle icon="calendar-today" label="Racha semanal" />
-                    <StreakRow streak={stats.streak} />
+                    <StreakRow weeklyCompletion={data.weeklyCompletion} streak={stats.streak} />
                 </View>
 
                 {/* Sesiones por categoría */}
@@ -827,6 +865,63 @@ export default function ParentalDashboard() {
                         ? <WellnessCards wellness={wellness} />
                         : <Card><Text style={styles.emptyText}>Sin datos de bienestar</Text></Card>
                     }
+                </View>
+
+                {/* Ritmo cardiaco de la última sesión con datos */}
+                <View style={styles.section}>
+                    <SectionTitle icon="favorite" label="Ritmo cardiaco — última sesión" />
+                    <Card>
+                        <MiniLineChart
+                            data={sessionHeartRate.map((h, i) => ({ label: `${i}`, value: h.value }))}
+                            color="#E74C3C"
+                        />
+                    </Card>
+                </View>
+
+                {/* Evolución del ánimo */}
+                <View style={styles.section}>
+                    <SectionTitle icon="mood" label="Evolución del ánimo" />
+                    <Card>
+                        <MiniLineChart
+                            data={moodTrend.map(m => ({
+                                label: new Date(m.date).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' }),
+                                value: m.mood,
+                            }))}
+                            minValue={1}
+                            maxValue={5}
+                            color="#F0C040"
+                        />
+                    </Card>
+                </View>
+
+                {/* Comparativa antes/después de entrenar */}
+                <View style={styles.section}>
+                    <SectionTitle icon="compare-arrows" label="Antes vs. después de entrenar" />
+                    <Card>
+                        {prePost.map(p => (
+                            <View key={p.metric} style={{ marginBottom: 12 }}>
+                                <Text style={{ fontSize: 13, fontWeight: '600', color: '#2D3E50', marginBottom: 4 }}>{p.metric}</Text>
+                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                                    <View style={{ flex: 1, height: 8, backgroundColor: '#E0E0E0', borderRadius: 4, overflow: 'hidden' }}>
+                                        <View style={{ width: `${(p.before / 5) * 100}%`, height: '100%', backgroundColor: '#888' }} />
+                                    </View>
+                                    <Text style={{ fontSize: 12, color: '#888', width: 30 }}>{p.before}</Text>
+                                </View>
+                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 }}>
+                                    <View style={{ flex: 1, height: 8, backgroundColor: '#E0E0E0', borderRadius: 4, overflow: 'hidden' }}>
+                                        <View style={{
+                                            width: `${(p.after / 5) * 100}%`, height: '100%',
+                                            backgroundColor: p.metric !== 'Ánimo' && p.after > p.before ? '#E74C3C' : '#2D9E75',
+                                        }} />
+                                    </View>
+                                    <Text style={{ fontSize: 12, color: '#888', width: 30 }}>{p.after}</Text>
+                                </View>
+                            </View>
+                        ))}
+                        <Text style={{ fontSize: 11, color: '#aaa', marginTop: 4 }}>
+                            Barra gris = antes de entrenar · Barra de color = después
+                        </Text>
+                    </Card>
                 </View>
 
                 {/* Actividad cardiaca reciente (sensores) */}
@@ -908,9 +1003,16 @@ export default function ParentalDashboard() {
                                         {r.exerciseCount} ejercicios · {r.isPersonal ? 'Personalizada' : 'General'}
                                     </Text>
                                 </View>
-                                <Pressable onPress={() => router.push({ pathname: '/routine-builder', params: { sourceRoutine: r.name } })}>
-                                    <MaterialIcons name="edit" size={20} color="#6B5B95" />
-                                </Pressable>
+                                <View style={{ flexDirection: 'row', gap: 12 }}>
+                                    <Pressable onPress={() => router.push({ pathname: '/routine-builder', params: { sourceRoutine: r.name } })}>
+                                        <MaterialIcons name="edit" size={20} color="#6B5B95" />
+                                    </Pressable>
+                                    {r.isPersonal && (
+                                        <Pressable onPress={() => handleDeleteRoutine(r.name)}>
+                                            <MaterialIcons name="delete-outline" size={20} color="#E74C3C" />
+                                        </Pressable>
+                                    )}
+                                </View>
                             </View>
                         </Card>
                     ))}

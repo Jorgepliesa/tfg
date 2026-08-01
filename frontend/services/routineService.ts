@@ -61,4 +61,8 @@ export const routineService = {
   async deleteRoutine(routineName: string) {
     await api.delete(`/routine/${encodeURIComponent(routineName)}`);
   },
+  async updateRoutine(routineName: string, dto: { category?: string; difficulty?: string; exercises: any[] }) {
+    const response = await api.patch(`/routine/${encodeURIComponent(routineName)}`, dto);
+    return response.data;
+  },
 };

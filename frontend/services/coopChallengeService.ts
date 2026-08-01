@@ -6,6 +6,8 @@ export interface CoopChallengeData {
   endDate: string;
   totalSteps: number;
   currentSteps: number;
+  memorial: string | null;
+  isDefeated: boolean;
 }
 
 export const challengeService = {

@@ -1,4 +1,4 @@
-import { Controller, Get, Query, UseGuards, Req, Param, Body, Delete, Post } from '@nestjs/common';
+import { Controller, Get, Query, UseGuards, Req, Param, Body, Delete, Post, Patch } from '@nestjs/common';
 import { ApiBearerAuth, ApiResponse, ApiTags, ApiQuery, ApiBody } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../utils/jwt-auth.guard';
 import { RoutineService } from '../services/routine.service';
@@ -9,6 +9,7 @@ import {
   ExerciseInRoutineDto,
   RoutineForkDto,
   RoutineCreateDto,
+  RoutineUpdateDto,
 } from '../dtos/routine.dto';
 import { ExerciseCategory } from '../entities/Exercise';
 import type { Request } from 'express';
@@ -155,5 +156,12 @@ export class RoutineController {
   })
   async getRoutineDetails(@Param('name') name: string): Promise<ExerciseInRoutineDto[]> {
     return this.routineService.getRoutineDetails(name);
+  }
+
+  @Patch(':name')
+  @ApiBody({ type: RoutineUpdateDto })
+  @ApiResponse({ status: 200, description: 'Rutina personal actualizada in-situ' })
+  async updateRoutine(@Req() req: Request, @Param('name') name: string, @Body() dto: RoutineUpdateDto) {
+    return this.routineService.updateRoutine(req.user!.id, name, dto);
   }
 }

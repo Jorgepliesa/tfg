@@ -36,4 +36,12 @@ export const clinicalProfileService = {
         const response = await api.patch('/clinical-profile/contraindications', { names });
         return response.data;
     },
+    async getMoodTrend(limit = 14) {
+        const response = await api.get('/clinical-profile/mood-trend', { params: { limit } });
+        return response.data;
+    },
+    async getPrePostComparison(limit = 10) {
+        const response = await api.get('/clinical-profile/pre-post-comparison', { params: { limit } });
+        return response.data;
+    },
 };

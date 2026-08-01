@@ -4,7 +4,7 @@ import { Repository, Between, MoreThan, In } from 'typeorm';
 import { ClinicalProfile } from '../entities/ClinicalProfile';
 import { Session } from '../entities/Session';
 import { Steps } from '../entities/Steps';
-import { WellnessTest } from '../entities/WellnessTest';
+import { WellnessTest, WellnessTestType } from '../entities/WellnessTest';
 import { Execute } from '../entities/Execute';
 import { UserAccount } from '../entities/UserAccount';
 import { ClinicalProfileCreateDto, ClinicalProfileUpdateDto } from '../dtos/clinicalProfile.dto';
@@ -133,7 +133,7 @@ export class ClinicalProfileService {
 
     // Racha y stats generales
     async getDashboardStats(userId: number) {
-        const user = await this.userRepository.findOne({ where: { id: userId } });
+        const user = await this.userRepository.findOne({ where: { id: userId }, relations: ['avatarEntity'] });
         if (!user) throw new NotFoundException('User not found');
 
         const todayStart = new Date();
@@ -152,7 +152,7 @@ export class ClinicalProfileService {
         });
 
         return {
-            streak: user.streak,
+            streak: await this.computeStreak(userId),
             todaySteps: todaySteps?.numSteps ?? 0,
             sessionsThisMonth,
             fp: user.avatarEntity?.fp ?? 0,
@@ -199,6 +199,44 @@ export class ClinicalProfileService {
             pct >= 70 ? 'green' : pct >= 40 ? 'yellow' : 'red';
 
         return { completed, planned: plannedDays, pct, status };
+    }
+
+    private async computeStreak(userId: number): Promise<number> {
+        const sessions = await this.sessionRepository.find({
+            where: { userId, duration: MoreThan(0) },
+            order: { date: 'DESC' },
+        });
+
+        const completedDays = new Set(sessions.map(s => new Date(s.date).toISOString().slice(0, 10)));
+
+        let streak = 0;
+        const cursor = new Date();
+        cursor.setHours(0, 0, 0, 0);
+
+        while (completedDays.has(cursor.toISOString().slice(0, 10))) {
+            streak++;
+            cursor.setDate(cursor.getDate() - 1);
+        }
+
+        return streak;
+    }
+
+    async getWeeklyCompletion(userId: number): Promise<boolean[]> {
+        const now = new Date();
+        const dayOfWeek = (now.getDay() + 6) % 7; // 0=lunes ... 6=domingo
+        const monday = new Date(now);
+        monday.setDate(now.getDate() - dayOfWeek);
+        monday.setHours(0, 0, 0, 0);
+        const sunday = new Date(monday);
+        sunday.setDate(monday.getDate() + 6);
+        sunday.setHours(23, 59, 59, 999);
+
+        const sessions = await this.sessionRepository.find({
+            where: { userId, date: Between(monday, sunday), duration: MoreThan(0) },
+        });
+
+        const completedDays = new Set(sessions.map(s => new Date(s.date).getDay()));
+        return Array.from({ length: 7 }, (_, i) => completedDays.has((i + 1) % 7));
     }
 
     // ─── Notas ────────────────────────────────────────────────────────────────────
@@ -258,5 +296,51 @@ export class ClinicalProfileService {
         await this.profileRepository.save(profile);
 
         return selected;
+    }
+
+    // ─── Gráficas ─────────────────────────────────────────────────────────
+    async getMoodTrend(userId: number, limit: number = 14): Promise<{ date: string; mood: number }[]> {
+        const tests = await this.wellnessRepository.find({
+            where: { userId },
+            order: { session: 'DESC' },
+            take: limit * 2, // initial + final por sesión
+        });
+
+        const bySession = new Map<string, number[]>();
+        for (const t of tests) {
+            const key = new Date(t.session).toISOString();
+            if (!bySession.has(key)) bySession.set(key, []);
+            bySession.get(key)!.push(t.mood);
+        }
+
+        return Array.from(bySession.entries())
+            .map(([date, moods]) => ({
+                date,
+                mood: Math.round((moods.reduce((a, b) => a + b, 0) / moods.length) * 10) / 10,
+            }))
+            .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+            .slice(-limit);
+    }
+
+    async getPrePostComparison(userId: number, limit: number = 10): Promise<{
+        metric: string; before: number; after: number;
+    }[]> {
+        const tests = await this.wellnessRepository.find({
+            where: { userId },
+            order: { session: 'DESC' },
+            take: limit * 2,
+        });
+
+        const initials = tests.filter(t => t.type === WellnessTestType.INITIAL);
+        const finals = tests.filter(t => t.type === WellnessTestType.FINAL);
+
+        const avg = (arr: typeof tests, field: 'pain' | 'fatigue' | 'mood') =>
+            arr.length > 0 ? Math.round((arr.reduce((sum, t) => sum + t[field], 0) / arr.length) * 10) / 10 : 0;
+
+        return [
+            { metric: 'Dolor', before: avg(initials, 'pain'), after: avg(finals, 'pain') },
+            { metric: 'Fatiga', before: avg(initials, 'fatigue'), after: avg(finals, 'fatigue') },
+            { metric: 'Ánimo', before: avg(initials, 'mood'), after: avg(finals, 'mood') },
+        ];
     }
 }

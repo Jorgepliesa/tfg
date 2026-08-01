@@ -191,3 +191,19 @@ export class RoutineForkDto {
   @Type(() => RoutineExercisePlanDto)
   exercises: RoutineExercisePlanDto[];
 }
+
+export class RoutineUpdateDto {
+  @ApiProperty({ enum: Category, required: false })
+  @IsOptional() @IsEnum(Category)
+  category?: Category;
+
+  @ApiProperty({ enum: Difficulty, required: false })
+  @IsOptional() @IsEnum(Difficulty)
+  difficulty?: Difficulty;
+
+  @ApiProperty({ type: [RoutineExercisePlanDto] })
+  @IsArray() @ArrayMinSize(1)
+  @ValidateNested({ each: true })
+  @Type(() => RoutineExercisePlanDto)
+  exercises: RoutineExercisePlanDto[];
+}

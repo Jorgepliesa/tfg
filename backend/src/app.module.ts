@@ -44,6 +44,7 @@ import { Contraindication } from './entities/Contraindication';
 // Importar entidades omop
 import { OmopMeasurement } from './entities/omop/OmopMeasurement';
 import { OmopDailySummary } from './entities/omop/OmopDailySummary';
+import { OmopSensorModule } from './modules/omopSensor.module';
 
 @Module({
   imports: [
@@ -117,6 +118,7 @@ import { OmopDailySummary } from './entities/omop/OmopDailySummary';
     MemorialModule,
     ChallengeModule,
     ClinicalProfileModule,
+    OmopSensorModule,
   ],
   controllers: [AppController],
   providers: [AppService],
