@@ -15,7 +15,7 @@ export default function WelcomeScreen() {
         <ImageBackground
             source={require('@/assets/images/Welcome.png')}
             style={styles.container}
-            resizeMode = "cover"
+            resizeMode="cover"
         >
             {/* Logo y titulo */}
             <View style={styles.logoContainer}>
@@ -98,12 +98,12 @@ const styles = StyleSheet.create({
         paddingHorizontal: 48,
         borderRadius: 30,
         elevation: 8,
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.3,
-            shadowRadius: 4,
-            minWidth: 200,
-            minHeight: 60,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 4,
+        minWidth: 200,
+        minHeight: 60,
     },
     enterButtonText: {
         fontSize: 28,

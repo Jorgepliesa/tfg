@@ -213,6 +213,11 @@ export class ClinicalProfileService {
         const cursor = new Date();
         cursor.setHours(0, 0, 0, 0);
 
+        const todayKey = cursor.toISOString().slice(0, 10);
+        if (!completedDays.has(todayKey)) {
+            cursor.setDate(cursor.getDate() - 1);
+        }
+
         while (completedDays.has(cursor.toISOString().slice(0, 10))) {
             streak++;
             cursor.setDate(cursor.getDate() - 1);
@@ -269,7 +274,7 @@ export class ClinicalProfileService {
         if (!user) throw new NotFoundException('User not found');
 
         const profile = await this.profileRepository.findOne({
-            where: { id: user.clinicalProfile },
+            where: { id: user.id },
             relations: ['contraindications'],
         });
         return profile?.contraindications ?? [];
@@ -280,7 +285,7 @@ export class ClinicalProfileService {
         if (!user) throw new NotFoundException('User not found');
 
         const profile = await this.profileRepository.findOne({
-            where: { id: user.clinicalProfile },
+            where: { id: user.id },
             relations: ['contraindications'],
         });
         if (!profile) throw new NotFoundException('Clinical profile not found');

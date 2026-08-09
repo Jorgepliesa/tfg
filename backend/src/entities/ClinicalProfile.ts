@@ -7,6 +7,7 @@ import {
   ManyToMany,
   OneToMany,
   OneToOne,
+  PrimaryColumn,
   PrimaryGeneratedColumn,
 } from "typeorm";
 import { CoopChallenge } from "./CoopChallenge";
@@ -36,7 +37,7 @@ export class ClinicalProfile {
     description: "Unique identifier for the clinical profile",
     example: 1,
   })
-  @PrimaryGeneratedColumn({ type: "integer", name: "id" })
+  @PrimaryColumn({ type: "integer", name: "id" })
   id: number;
 
   @ApiProperty({
@@ -150,6 +151,7 @@ export class ClinicalProfile {
   hospital: string;
 
   @OneToOne(() => UserAccount, (userAccount) => userAccount.clinicalProfileEntity)
+  @JoinColumn({ name: "id", referencedColumnName: "id" })
   userAccount: UserAccount;
 
   @ApiProperty({ type: [String], description: "Contraindicaciones que presenta el paciente" })

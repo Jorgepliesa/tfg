@@ -11,33 +11,10 @@ export default function Categories() {
     const router = useRouter();
     const { t } = useTranslation();
     const { initSession } = useSession();
-    const [loading, setLoading] = useState(false);
 
     const handleCardPress = async (category: string) => {
-        try {
-            setLoading(true);
-            const suggestedRoutine = await routineService.suggestRoutine(category);
-            const routineExercises = await routineService.getRoutineDetails(suggestedRoutine.routineName);
-
-            initSession(category, suggestedRoutine.routineName, routineExercises);
-            router.push('/(tabs)/session/wellnessTest');
-        } catch (error) {
-            console.error('Error al sugerir rutina:', error);
-            Alert.alert(t('routines.error_title'), t('routines.error_message'));
-        } finally {
-            setLoading(false);
-        }
+        router.push({ pathname: '/(tabs)/session/routineList', params: { category } });
     };
-
-    if (loading) {
-        return (
-            <SafeAreaView style={styles.safeContainer}>
-                <View style={styles.loadingContainer}>
-                    <ActivityIndicator size="large" color="#6B5B95" />
-                </View>
-            </SafeAreaView>
-        );
-    }
 
     return (
         <SafeAreaView style={styles.safeContainer}>

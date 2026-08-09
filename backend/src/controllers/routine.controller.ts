@@ -47,39 +47,6 @@ export class RoutineController {
   }
 
   /**
-   * GET /routine/suggest?category=aerobic
-   * Suggest a routine based on category and user profile
-   */
-  @Get('suggest')
-  @ApiQuery({
-    name: 'category',
-    required: true,
-    enum: ExerciseCategory,
-    description: 'Category to suggest routine for',
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Suggested routine info',
-    schema: {
-      example: {
-        routineName: 'Morning Cardio Blast',
-        category: 'aerobic',
-        difficulty: 'easy'
-      },
-    },
-  })
-  @ApiResponse({
-    status: 400,
-    description: 'Bad request (e.g., missing category)',
-  })
-  async suggestRoutine(
-    @Req() req: Request,
-    @Query('category') category: ExerciseCategory, // Se pone query por el parametro: GET /routine/suggest?category=aerobic
-  ): Promise<{ routineName: string; category: string; difficulty: string }> {
-    return this.routineService.suggestRoutine(req.user!.id, category);
-  }
-
-  /**
      * GET /routine/recommend?hasEquipment=true
      * Recomienda una rutina según material disponible e historial
      */
@@ -112,9 +79,10 @@ export class RoutineController {
   }
 
   @Get('mine')
+  @ApiQuery({ name: 'category', required: false, enum: ExerciseCategory, description: 'Filtrar por categoría' })
   @ApiResponse({ status: 200, description: 'Rutinas visibles para el usuario (genéricas + personales)' })
-  async getMyRoutines(@Req() req: Request) {
-    return this.routineService.getRoutinesForUser(req.user!.id);
+  async getMyRoutines(@Req() req: Request, @Query('category') category?: ExerciseCategory) {
+    return this.routineService.getRoutinesForUser(req.user!.id, category);
   }
 
   @Get(':name/edit-view')
@@ -154,8 +122,8 @@ export class RoutineController {
     description: 'List of exercises for the routine',
     type: [ExerciseInRoutineDto],
   })
-  async getRoutineDetails(@Param('name') name: string): Promise<ExerciseInRoutineDto[]> {
-    return this.routineService.getRoutineDetails(name);
+  async getRoutineDetails(@Req() req: Request, @Param('name') name: string): Promise<ExerciseInRoutineDto[]> {
+    return this.routineService.getRoutineDetails(name, req.user!.id);
   }
 
   @Patch(':name')

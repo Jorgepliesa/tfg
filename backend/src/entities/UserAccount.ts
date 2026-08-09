@@ -47,13 +47,6 @@ export class UserAccount {
   @Column({ name: "avatar" })
   avatar: number;
 
-  @ApiProperty({
-    example: 1,
-    description: "The unique identifier of the clinical profile associated with the user account",
-  })
-  @Column({ name: "clinical_profile" })
-  clinicalProfile: number;
-
   @OneToMany(() => Has, (has) => has.userAccount)
   memorials: Has[];
 
@@ -68,6 +61,5 @@ export class UserAccount {
   avatarEntity: Avatar;
 
   @OneToOne(() => ClinicalProfile, (clinicalProfile) => clinicalProfile.userAccount)
-  @JoinColumn([{ name: "clinical_profile", referencedColumnName: "id" }])
   clinicalProfileEntity: ClinicalProfile;
 }

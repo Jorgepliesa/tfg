@@ -67,13 +67,13 @@ export class RoutineService {
   /**
    * Rutinas visibles para el usuario (genéricas + personales), con indicador de si es personal.
    */
-  async getRoutinesForUser(userId: number): Promise<(RoutineListDto & { isPersonal: boolean })[]> {
+  async getRoutinesForUser(userId: number, category?: ExerciseCategory): Promise<(RoutineListDto & { isPersonal: boolean })[]> {
     const routines = await this.routineRepository.find({
       relations: ['plans', 'plans.exerciseEntity'],
     });
 
     return routines
-      .filter((r) => r.assignedUserId === null || r.assignedUserId === userId)
+      .filter((r) => (r.assignedUserId === null || r.assignedUserId === userId) && (!category || (r.category as string) === (category as string)))
       .map((r) => {
         const plans = r.plans || [];
         const difficulties = new Set(plans.map((p) => p.exerciseEntity.difficulty));
@@ -319,7 +319,7 @@ export class RoutineService {
     if (!user) return new Set();
 
     const profile = await this.clinicalProfileRepository.findOne({
-      where: { id: user.clinicalProfile },
+      where: { id: user.id },
       relations: ['contraindications'],
     });
     if (!profile) return new Set();
@@ -408,54 +408,6 @@ export class RoutineService {
     }
 
     return filtered;
-  }
-
-  /**
-   * Suggest a routine based on category and user profile
-   * Retorna el nombre de la rutina sugerida, categoria y dificultad.
-   */
-  async suggestRoutine(
-    userId: number,
-    category: ExerciseCategory,
-  ): Promise<{ routineName: string; category: string; difficulty: string }> {
-    // Consulta optimizada: Buscamos primero en la tabla de Rutinas directamente
-    // ya que hemos añadido category a Routine en BBDD.sql
-    let routineInfo = await this.routineRepository.createQueryBuilder('routine')
-      .where('routine.category = :category', { category })
-      .select([
-        'routine.name AS "routineName"',
-        'routine.category AS "category"',
-        'routine.difficulty AS "difficulty"'
-      ])
-      .limit(1)
-      .getRawOne();
-
-    // Fallback: Si no tiene el atributo category en Routine y usamos el viejo diseño
-    if (!routineInfo) {
-      routineInfo = await this.routineRepository.createQueryBuilder('routine')
-        .innerJoin('routine.plans', 'plan')
-        .innerJoin('plan.exerciseEntity', 'exercise')
-        .where('exercise.category = :category', { category })
-        .select([
-          'routine.name AS "routineName"',
-          'exercise.category AS "category"',
-          'exercise.difficulty AS "difficulty"'
-        ])
-        .limit(1)
-        .getRawOne();
-    }
-
-    if (!routineInfo) {
-      throw new NotFoundException(
-        `No routines found for category "${category}"`,
-      );
-    }
-
-    return {
-      routineName: routineInfo.routineName,
-      category: routineInfo.category,
-      difficulty: routineInfo.difficulty,
-    };
   }
 
   /**

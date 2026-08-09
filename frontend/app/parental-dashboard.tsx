@@ -298,11 +298,27 @@ function EditProfileModal({
 
     useEffect(() => {
         if (!visible) return;
+        setForm({
+            birthDate: initial?.birthDate ?? '',
+            age: initial?.age?.toString() ?? '',
+            biologicalSex: initial?.biologicalSex ?? 'male',
+            tannerStage: initial?.tannerStage ?? '',
+            weight: initial?.weight?.toString() ?? '',
+            height: initial?.height?.toString() ?? '',
+            bmi: initial?.bmi?.toString() ?? '',
+            bmiPercentile: initial?.bmiPercentile?.toString() ?? '',
+            priorConditions: initial?.priorConditions ?? '',
+            currentComorbidities: initial?.currentComorbidities ?? '',
+            familyHistory: initial?.familyHistory ?? '',
+            diagnosis: initial?.diagnosis ?? '',
+            treatmentEndDate: initial?.treatmentEndDate ?? '',
+            hospital: initial?.hospital ?? '',
+        });
         setSelectedContraindications(new Set(initialContraindications.map(c => c.name)));
         clinicalProfileService.getContraindicationCatalog()
             .then(setCatalog)
             .catch(() => Alert.alert('Error', 'No se pudo cargar el catálogo de contraindicaciones'));
-    }, [visible]);
+    }, [visible, initial]);
 
     const toggleContraindication = (name: string) => {
         setSelectedContraindications(prev => {
@@ -334,24 +350,65 @@ function EditProfileModal({
     const handleSave = async () => {
         setSaving(true);
         try {
-            await onSave({
-                birthDate: form.birthDate,
-                age: parseInt(form.age),
-                biologicalSex: form.biologicalSex,
-                tannerStage: form.tannerStage || undefined,
-                weight: parseFloat(form.weight),
-                height: parseFloat(form.height),
-                bmi: form.bmi ? parseFloat(form.bmi) : undefined,
-                bmiPercentile: form.bmiPercentile ? parseFloat(form.bmiPercentile) : undefined,
-                priorConditions: form.priorConditions || undefined,
-                currentComorbidities: form.currentComorbidities || undefined,
-                familyHistory: form.familyHistory || undefined,
-                diagnosis: form.diagnosis,
-                treatmentEndDate: form.treatmentEndDate,
-                hospital: form.hospital,
-            }, Array.from(selectedContraindications));
+            const cleanStr = (v?: string) => (v && v.trim() !== '' ? v.trim() : undefined);
+            const cleanInt = (v?: string) => {
+                if (!v || v.trim() === '') return undefined;
+                const n = parseInt(v, 10);
+                return isNaN(n) ? undefined : n;
+            };
+            const cleanFloat = (v?: string) => {
+                if (!v || v.trim() === '') return undefined;
+                const n = parseFloat(v);
+                return isNaN(n) ? undefined : n;
+            };
+
+            const payload: Record<string, any> = {};
+
+            const birthDate = cleanStr(form.birthDate);
+            if (birthDate !== undefined) payload.birthDate = birthDate;
+
+            const age = cleanInt(form.age);
+            if (age !== undefined) payload.age = age;
+
+            if (form.biologicalSex) payload.biologicalSex = form.biologicalSex;
+
+            const tannerStage = cleanStr(form.tannerStage);
+            if (tannerStage !== undefined) payload.tannerStage = tannerStage;
+
+            const weight = cleanFloat(form.weight);
+            if (weight !== undefined) payload.weight = weight;
+
+            const height = cleanFloat(form.height);
+            if (height !== undefined) payload.height = height;
+
+            const bmi = cleanFloat(form.bmi);
+            if (bmi !== undefined) payload.bmi = bmi;
+
+            const bmiPercentile = cleanFloat(form.bmiPercentile);
+            if (bmiPercentile !== undefined) payload.bmiPercentile = bmiPercentile;
+
+            const priorConditions = cleanStr(form.priorConditions);
+            if (priorConditions !== undefined) payload.priorConditions = priorConditions;
+
+            const currentComorbidities = cleanStr(form.currentComorbidities);
+            if (currentComorbidities !== undefined) payload.currentComorbidities = currentComorbidities;
+
+            const familyHistory = cleanStr(form.familyHistory);
+            if (familyHistory !== undefined) payload.familyHistory = familyHistory;
+
+            const diagnosis = cleanStr(form.diagnosis);
+            if (diagnosis !== undefined) payload.diagnosis = diagnosis;
+
+            const treatmentEndDate = cleanStr(form.treatmentEndDate);
+            if (treatmentEndDate !== undefined) payload.treatmentEndDate = treatmentEndDate;
+
+            const hospital = cleanStr(form.hospital);
+            if (hospital !== undefined) payload.hospital = hospital;
+
+            await onSave(payload, Array.from(selectedContraindications));
             onClose();
-        } catch {
+        } catch (error) {
+            console.error('Error saving clinical profile:', error);
             Alert.alert('Error', 'No se pudieron guardar los cambios');
         } finally {
             setSaving(false);
@@ -795,7 +852,7 @@ export default function ParentalDashboard() {
                     <View style={{ flex: 1 }}>
                         <Text style={styles.profileName}>Usuario #{userId}</Text>
                         <Text style={styles.profileSub}>
-                            {profile ? `${profile.age} años · ${GENDER_LABEL[profile.biologicalSex] ?? profile.biologicalSex}` : 'Sin perfil clínico'}
+                            {profile ? `${profile.age != null ? `${profile.age} años` : ''}${profile.age != null && profile.biologicalSex ? ' · ' : ''}${GENDER_LABEL[profile.biologicalSex] ?? profile.biologicalSex ?? ''}` : 'Sin perfil clínico'}
                         </Text>
                     </View>
                     {profile?.diagnosis && (
@@ -824,11 +881,11 @@ export default function ParentalDashboard() {
                     </View>
                     {profile ? (
                         <Card>
-                            <DataRow icon="straighten" label="Altura" value={`${profile.height} cm`} />
-                            <DataRow icon="monitor-weight" label="Peso" value={`${profile.weight} kg`} />
-                            <DataRow icon="event" label="Nacimiento" value={new Date(profile.birthDate).toLocaleDateString('es-ES')} />
-                            <DataRow icon="local-hospital" label="Hospital" value={profile.hospital} />
-                            <DataRow icon="event-available" label="Fin tratamiento" value={new Date(profile.treatmentEndDate).toLocaleDateString('es-ES')} />
+                            <DataRow icon="straighten" label="Altura" value={profile.height != null ? `${profile.height} cm` : 'No especificada'} />
+                            <DataRow icon="monitor-weight" label="Peso" value={profile.weight != null ? `${profile.weight} kg` : 'No especificado'} />
+                            <DataRow icon="event" label="Nacimiento" value={profile.birthDate ? new Date(profile.birthDate).toLocaleDateString('es-ES') : 'No especificado'} />
+                            <DataRow icon="local-hospital" label="Hospital" value={profile.hospital || 'No especificado'} />
+                            <DataRow icon="event-available" label="Fin tratamiento" value={profile.treatmentEndDate ? new Date(profile.treatmentEndDate).toLocaleDateString('es-ES') : 'No especificado'} />
                         </Card>
                     ) : (
                         <Card>

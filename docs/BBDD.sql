@@ -37,7 +37,7 @@ CREATE TABLE Coop_challenge (
     end_date TIMESTAMPTZ NOT NULL,
     status challenge_type NOT NULL,
     total_steps INT NOT NULL,
-    memorial VARCHAR(255) UNIQUE,
+    memorial VARCHAR(255) UNIQUE NOT NULL,
     PRIMARY KEY (name),
     FOREIGN KEY (memorial) REFERENCES Memorial(name),
     CHECK (total_steps >= 0 AND total_steps < 1000000),
@@ -53,13 +53,13 @@ CREATE TABLE complete (
 );
 
 CREATE TABLE Clinical_Profile (
-    id SERIAL,
+    id INT,
     age INT,
     biological_sex biological_sex_type,
-    height INT,
-    weight INT,
-    bmi INT,
-    bmi_percentile INT,
+    height NUMERIC,
+    weight NUMERIC,
+    bmi NUMERIC,
+    bmi_percentile NUMERIC,
     birth_date DATE,
     diagnosis VARCHAR(100),
     tanner_stage tanner_stage_type,
@@ -69,6 +69,7 @@ CREATE TABLE Clinical_Profile (
     current_comorbidities TEXT,
     family_history TEXT,
     PRIMARY KEY (id),
+    FOREIGN KEY (id) REFERENCES User_Account(id),
     CHECK (age >= 0 AND age < 100),
     CHECK (height >= 0 AND height < 200),
     CHECK (weight >= 0 AND weight < 1000),
@@ -82,8 +83,8 @@ CREATE TABLE contraindication (
 );
 
 CREATE TABLE presents (
-    clinical_profile INT NOT NULL,
-    contraindication VARCHAR(255) NOT NULL,
+    clinical_profile INT,
+    contraindication VARCHAR(255),
     PRIMARY KEY (clinical_profile, contraindication),
     FOREIGN KEY (clinical_profile) REFERENCES Clinical_Profile(id),
     FOREIGN KEY (contraindication) REFERENCES contraindication(name)
@@ -91,7 +92,7 @@ CREATE TABLE presents (
 
 CREATE TABLE restricts (
     exercise VARCHAR(255),
-    contraindication VARCHAR(255) NOT NULL,
+    contraindication VARCHAR(255),
     PRIMARY KEY (exercise, contraindication),
     FOREIGN KEY (exercise) REFERENCES Exercise(name),
     FOREIGN KEY (contraindication) REFERENCES contraindication(name)
@@ -100,17 +101,13 @@ CREATE TABLE restricts (
 CREATE TABLE User_Account (
     id INT,
     avatar INT NOT NULL,
-    streak INT NOT NULL,
-    clinical_profile INT UNIQUE NOT NULL,
     password VARCHAR(255) NOT NULL,
     PRIMARY KEY (id),
     FOREIGN KEY (avatar) REFERENCES Avatar(id),
-    FOREIGN KEY (clinical_profile) REFERENCES Clinical_Profile(id),
-    CHECK (streak >= 0)
 );
 
 CREATE TABLE Supervisor_Note (
-    clinical_profile INT NOT NULL,
+    clinical_profile INT,
     content TEXT NOT NULL,
     date TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY(clinical_profile, date),
@@ -147,7 +144,9 @@ CREATE TABLE Routine (
     name VARCHAR(255),
     category category_type NOT NULL,
     difficulty difficulty_type NOT NULL,
-    PRIMARY KEY (name)
+    assigned_user_id INT,
+    PRIMARY KEY (name),
+    FOREIGN KEY (assigned_user_id) REFERENCES User_Account(id),
     -- description TEXT
 );
 
@@ -165,7 +164,7 @@ CREATE TABLE Session (
 CREATE TABLE Wellness_test (
     session TIMESTAMPTZ,
     user_id INT,
-    type wellness_type NOT NULL,
+    type wellness_type,
     pain INT NOT NULL, -- 1-5 scale
     sleepiness INT NOT NULL,
     mood INT NOT NULL, 

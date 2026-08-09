@@ -30,9 +30,9 @@ export default function RootLayout() {
 
     const inAuthGroup = segments[0] === '(tabs)' || segments[0] === 'welcome'; // Rutas protegidas
 
-    if(!isAuthenticated && inAuthGroup) { 
+    if (!isAuthenticated && inAuthGroup) {
       router.replace('/login');
-    } 
+    }
     else if (isAuthenticated && segments[0] === 'login') {
       router.replace('/welcome');
     }
@@ -47,11 +47,10 @@ export default function RootLayout() {
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="login" />
         <Stack.Screen name="welcome" />
-        <Stack.Screen 
+        <Stack.Screen
           name="parental-dashboard"
           options={{
-            presentation: 'modal',
-            headerShown: true,
+            headerShown: false,
             title: 'Parental Dashboard',
           }}
         />
