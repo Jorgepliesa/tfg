@@ -9,6 +9,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState, useCallback } from 'react';
 import { useFocusEffect } from 'expo-router';
 import { shopService } from '../../services/shopService';
+import { BACKEND_URL } from '@/services/api';
+import { Image } from 'expo-image';
 
 const CATEGORIES = ['head', 'body', 'arms', 'legs', 'feet', 'face', 'accessory'] as const;
 type Category = typeof CATEGORIES[number];
@@ -30,7 +32,7 @@ const CATEGORY_COLORS: Record<Category, string> = {
 interface KeepEntry {
     item: string;
     isWearing: boolean;
-    itemEntity: { name: string; type: Category; cost: number; };
+    itemEntity: { name: string; type: Category; cost: number; image: string };
 }
 
 export default function Inventory() {
@@ -145,11 +147,18 @@ export default function Inventory() {
                                 onPress={() => handleEquip(entry.item)}
                             >
                                 <View style={styles.itemImageBox}>
-                                    <MaterialIcons
-                                        name={CATEGORY_ICONS[entry.itemEntity.type] as any}
-                                        size={48}
-                                        color="#6B5B95"
-                                    />
+                                    {entry.itemEntity.image == "" ? (
+                                        <MaterialIcons
+                                            name={CATEGORY_ICONS[entry.itemEntity.type as Category] as any}
+                                            size={48}
+                                            color="#6B5B95"
+                                        />
+                                    ) : (
+                                        <Image
+                                            source={{ uri: `${BACKEND_URL}/${entry.itemEntity.image}` }}
+                                            style={styles.itemImage}
+                                        />
+                                    )}
                                 </View>
 
                                 <Text style={styles.itemName} numberOfLines={2}>
@@ -244,4 +253,9 @@ const styles = StyleSheet.create({
         paddingHorizontal: 20, paddingVertical: 12,
     },
     shopButtonText: { fontSize: 15, fontWeight: '600', color: '#fff' },
+    itemImage: {
+        width: 100,
+        height: 100,
+        resizeMode: 'contain',
+    },
 });

@@ -9,7 +9,14 @@ import { useEffect, useState } from 'react';
 import { routineService } from '@/services/routineService';
 
 interface CatalogExercise {
-    name: string; description: string; category: string; difficulty: string; isContraindicated: boolean;
+    name: string;
+    description: string;
+    category: string;
+    difficulty: string;
+    isContraindicated: boolean;
+    equipment: string[];
+    measurementParameters: string[];
+    contraindications: string[];
 }
 
 interface PlanExercise {
@@ -239,6 +246,34 @@ export default function RoutineBuilder() {
                                     <Text style={styles.warningText}>Contraindicado para este usuario</Text>
                                 </View>
                             )}
+                            {info && (
+                                <View style={styles.detailsContainer}>
+                                    {info.equipment && info.equipment.length > 0 && (
+                                        <View style={styles.detailRow}>
+                                            <MaterialIcons name="build" size={14} color="#6B5B95" />
+                                            <Text style={styles.detailText}>
+                                                Material: <Text style={styles.detailValueText}>{info.equipment.join(', ')}</Text>
+                                            </Text>
+                                        </View>
+                                    )}
+                                    {info.measurementParameters && info.measurementParameters.length > 0 && (
+                                        <View style={styles.detailRow}>
+                                            <MaterialIcons name="assessment" size={14} color="#6B5B95" />
+                                            <Text style={styles.detailText}>
+                                                Medir: <Text style={styles.detailValueText}>{info.measurementParameters.join(', ')}</Text>
+                                            </Text>
+                                        </View>
+                                    )}
+                                    {info.contraindications && info.contraindications.length > 0 && (
+                                        <View style={styles.detailRow}>
+                                            <MaterialIcons name="block" size={14} color="#C0392B" />
+                                            <Text style={[styles.detailText, { color: '#C0392B' }]}>
+                                                Contraindicaciones: <Text style={[styles.detailValueText, { color: '#C0392B', fontWeight: '500' }]}>{info.contraindications.join(', ')}</Text>
+                                            </Text>
+                                        </View>
+                                    )}
+                                </View>
+                            )}
                             <View style={styles.exerciseFields}>
                                 {(['numReps', 'numSeries', 'rest'] as const).map(field => (
                                     <View key={field} style={styles.exerciseFieldBox}>
@@ -296,6 +331,30 @@ export default function RoutineBuilder() {
                                     <Text style={styles.catalogItemMeta}>
                                         {EXERCISE_CATEGORY_LABEL[ex.category]} · {DIFFICULTY_LABEL[ex.difficulty]}
                                     </Text>
+                                    {ex.equipment && ex.equipment.length > 0 && (
+                                        <View style={styles.catalogDetailRow}>
+                                            <MaterialIcons name="build" size={11} color="#888" />
+                                            <Text style={styles.catalogItemDetail}>
+                                                Material: {ex.equipment.join(', ')}
+                                            </Text>
+                                        </View>
+                                    )}
+                                    {ex.measurementParameters && ex.measurementParameters.length > 0 && (
+                                        <View style={styles.catalogDetailRow}>
+                                            <MaterialIcons name="assessment" size={11} color="#888" />
+                                            <Text style={styles.catalogItemDetail}>
+                                                Medir: {ex.measurementParameters.join(', ')}
+                                            </Text>
+                                        </View>
+                                    )}
+                                    {ex.contraindications && ex.contraindications.length > 0 && (
+                                        <View style={styles.catalogDetailRow}>
+                                            <MaterialIcons name="block" size={11} color="#C0392B" />
+                                            <Text style={[styles.catalogItemDetail, { color: '#C0392B' }]}>
+                                                Contraindicaciones: {ex.contraindications.join(', ')}
+                                            </Text>
+                                        </View>
+                                    )}
                                 </View>
                                 {ex.isContraindicated && <MaterialIcons name="warning" size={18} color="#E07B54" />}
                                 <MaterialIcons name="add-circle-outline" size={22} color="#6B5B95" />
@@ -360,6 +419,29 @@ const styles = StyleSheet.create({
     },
     catalogItemName: { fontSize: 14, fontWeight: '600', color: '#2D3E50' },
     catalogItemMeta: { fontSize: 12, color: '#888', marginTop: 2 },
+    catalogDetailRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
+    catalogItemDetail: { fontSize: 11, color: '#666' },
+    detailsContainer: {
+        marginTop: 10,
+        paddingTop: 8,
+        borderTopWidth: 0.5,
+        borderTopColor: '#E0E0E0',
+        gap: 4,
+    },
+    detailRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+    },
+    detailText: {
+        fontSize: 12,
+        color: '#666',
+        fontWeight: '500',
+    },
+    detailValueText: {
+        fontWeight: '400',
+        color: '#444',
+    },
     timedToggleRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10 },
     timedToggleLabel: { fontSize: 13, color: '#2D3E50', fontWeight: '500' },
 });

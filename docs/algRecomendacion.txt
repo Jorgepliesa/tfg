@@ -74,3 +74,12 @@ Con tu seed actual (todas las rutinas EASY), la parte de dificultad no se notar�
 Genera 2-3 sesiones con Execute donde numRepsDone sea bajo (~30% del objetivo) y un WellnessTest inicial con pain: 5, fatigue: 5.
 Llama a /routine/recommend y comprueba que el log/respuesta tiende a rutinas cuya dificultad no suba (con tu seed solo hay easy, así que verás que sigue en easy, que es el comportamiento correcto — no debería subir a medium si no existiera aún).
 Si quieres ver el salto de verdad, añade una rutina medium de prueba en BD y repite con datos "buenos" (pain: 1, fatigue: 1, numRepsDone = objetivo completo)
+
+
+
+Trazabilidad en la puntuación: La interfaz ScoreBreakdown permite auditar detalladamente la contribución exacta de cada factor:
+difficultyPoints: Puntos por coincidencia de dificultad (+4 exacta, +2 adyacente).
+categoryRotationPoints: Puntos por alternar la categoría respecto a la última sesión (+2).
+equipmentPoints: Puntos por coincidir con la preferencia de equipamiento (+1).
+recentPenalty: Penalización por repetición en las últimas 5 sesiones (−3 por repetición).
+total: Suma de todas las puntuaciones.

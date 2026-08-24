@@ -27,13 +27,6 @@ export class UserAccount {
   id: number;
 
   @ApiProperty({
-    example: 5,
-    description: "The current streak of the user account",
-  })
-  @Column({ type: "integer", name: "streak", default: 0 })
-  streak: number;
-
-  @ApiProperty({
     example: "password123",
     description: "The password of the user account",
   })

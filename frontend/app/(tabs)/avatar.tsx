@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { View, Image, StyleSheet, Animated } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
+import { BACKEND_URL } from "@/services/api";
 
 export type ItemCategory = 'head' | 'body' | 'legs' | 'feet' | 'arms' | 'accessory' | 'face';
 
@@ -67,7 +68,7 @@ export function AvatarDisplay({
 }) {
     return (
         <View style={[styles.stage, { width: size, height: size }]}>
-            <Image source={require('@/assets/images/Avatar.png')} style={{ width: size, height: size, resizeMode: 'contain' }} />
+            <Image source={{ uri: `${BACKEND_URL}/uploads/images/Avatar.png` }} style={{ width: size, height: size, resizeMode: 'contain' }} />
             {equipped.map((e) => (
                 <EquippedBadge key={`${e.type}-${e.item}`} type={e.type} itemName={e.item} isPreview={isPreview} />
             ))}

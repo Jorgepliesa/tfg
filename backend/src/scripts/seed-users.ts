@@ -21,6 +21,7 @@ import { MuscleGroup } from '../entities/MuscleGroup';
 import { Equipment } from '../entities/Equipment';
 import { MeasurementParameter } from '../entities/MeasurementParameter';
 import { ClinicalProfile } from '../entities/ClinicalProfile';
+import { Contraindication } from '../entities/Contraindication';
 
 // Cargar variables de entorno
 dotenv.config();
@@ -62,6 +63,7 @@ async function bootstrap() {
       MeasurementParameter,
       Complete,
       ClinicalProfile,
+      Contraindication,
     ],
     synchronize: false,
   });
@@ -75,10 +77,10 @@ async function bootstrap() {
     const hasRepository = dataSource.getRepository(Has);
     const clinicalProfileRepository = dataSource.getRepository(ClinicalProfile);
 
-    const USUARIO = 821011;
+    const USUARIO = 900000;
 
     // Hash de la contraseña
-    const hashedPassword = await bcrypt.hash('1234', 10);
+    const hashedPassword = await bcrypt.hash('0000', 10);
 
     // Verificar si el usuario ya existe
     const existingUser = await userRepository.findOne({
@@ -110,27 +112,20 @@ async function bootstrap() {
     }
 
     // Crear avatar primero (solo con FP)
-    const avatar = avatarRepository.create({
-      fp: 100,
-    });
-
+    const avatar = avatarRepository.create({ fp: 100 });
     const savedAvatar = await avatarRepository.save(avatar);
-
-    // Crear los datos del perfil clínico
-    const clinicalProfile = clinicalProfileRepository.create();
-
-    const savedClinicalProfile = await clinicalProfileRepository.save(clinicalProfile);
 
     // Crear usuario con referencia al avatar
     const user = userRepository.create({
       id: USUARIO,
       password: hashedPassword,
-      streak: 0,
-      avatar: savedAvatar.id, // FK al avatar,
-      clinicalProfile: savedClinicalProfile.id, // FK al perfil clínico
+      avatar: savedAvatar.id,
     });
-
     await userRepository.save(user);
+
+    // Crear perfil clínico DESPUÉS del usuario (ClinicalProfile.id es FK → UserAccount.id)
+    const clinicalProfile = clinicalProfileRepository.create({ id: USUARIO });
+    await clinicalProfileRepository.save(clinicalProfile);
 
     // Crear registro de pasos para el usuario
     const steps = stepsRepository.create({

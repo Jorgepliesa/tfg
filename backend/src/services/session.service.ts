@@ -1,6 +1,6 @@
 import { Injectable, BadRequestException, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Repository, Between } from "typeorm";
+import { Repository, Between, MoreThan } from "typeorm";
 import { Session } from "../entities/Session";
 import { WellnessTest, WellnessTestType } from "../entities/WellnessTest";
 import { Execute } from "../entities/Execute";
@@ -28,6 +28,7 @@ export class SessionService {
             where: {
                 userId: userId,
                 date: Between(today, endOfDay),
+                duration: MoreThan(0),
             },
         });
 
@@ -35,19 +36,42 @@ export class SessionService {
     }
 
     async startSession(userId: number, createSessionDto: SessionCreateDto): Promise<SessionResponseDto> {
-        /*const canStart = await this.canStartSession(userId);
-        if (!canStart) {
-            throw new BadRequestException('User already has a session created today. Only one session per day is allowed.');
-        }*/
-
         const now = new Date();
+
+        // Limpiar cualquier sesión incompleta previa (duration = 0) del usuario para evitar duplicación y huérfanos
+        const incompleteSessions = await this.sessionRepository.find({
+            where: {
+                userId: userId,
+                duration: 0,
+            },
+        });
+
+        for (const s of incompleteSessions) {
+            const start = new Date(s.date);
+            start.setMilliseconds(0);
+            const end = new Date(s.date);
+            end.setMilliseconds(999);
+
+            await this.wellnessTestRepository.delete({
+                userId: userId,
+                session: Between(start, end),
+            });
+            await this.executeRepository.delete({
+                userId: userId,
+                session: Between(start, end),
+            });
+            await this.sessionRepository.delete({
+                userId: userId,
+                date: s.date,
+            });
+        }
 
         const session = this.sessionRepository.create({
             date: now,
             userId: userId,
             routine: createSessionDto.routine,
             isCoop: createSessionDto.isCoop,
-            duration: 1, // Cambiado a 1 porque si no me daba error
+            duration: 0,
         });
 
         const savedSession = await this.sessionRepository.save(session);

@@ -10,6 +10,8 @@ export interface ExerciseInRoutine {
   duration: string | null;
   rest: number;
   videoUrl: string | null;
+  equipment: string[];
+  measurementParameters: string[];
 }
 
 export interface WellnessTestData {

@@ -57,11 +57,26 @@ export class ExerciseInRoutineDto {
   rest: number;
 
   @ApiProperty({
+    type: String,
     example: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
-    description: 'URL del vídeo demostrativo del ejercicio (si existe)',
+    description: 'Demonstration video url, if available',
     nullable: true,
   })
   videoUrl: string | null;
+
+  @ApiProperty({
+    type: [String],
+    example: ['Weights', 'Mat'],
+    description: 'Equipment required for this exercise',
+  })
+  equipment: string[];
+
+  @ApiProperty({
+    type: [String],
+    example: ['Heart Rate'],
+    description: 'Measurement parameters tracked during this exercise',
+  })
+  measurementParameters: string[];
 }
 
 export class RoutineDetailsDto {

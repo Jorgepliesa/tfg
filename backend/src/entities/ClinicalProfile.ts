@@ -41,6 +41,14 @@ export class ClinicalProfile {
   id: number;
 
   @ApiProperty({
+    nullable: true,
+    example: 1,
+    description: "ID del paciente en el sistema OMOP (person_id), usado para vincular datos de sensores wearables",
+  })
+  @Column({ type: 'integer', name: 'omop_person_id', nullable: true })
+  omopPersonId: number | null;
+
+  @ApiProperty({
     description: "Age of the patient",
     example: 25,
   })

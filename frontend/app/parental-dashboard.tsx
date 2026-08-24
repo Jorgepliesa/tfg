@@ -10,10 +10,10 @@ import { useEffect, useState } from 'react';
 import { clinicalProfileService } from '@/services/clinicalProfileService';
 import { exportDashboardPDF } from '@/services/pdfExportService';
 import api from '@/services/api';
-import { Contraindication } from '../../backend/src/entities/Contraindication';
 import { routineService } from '@/services/routineService';
 import { omopSensorService } from '@/services/omopSensorService';
 import { MiniLineChart } from '@/components/MiniLineChart';
+import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CONTENT_WIDTH = Math.min(SCREEN_WIDTH, 480); // cap en tablet
@@ -45,7 +45,7 @@ interface DashboardData {
         content: string;
         date: string;
     }[];
-    contraindications: {
+    contraindication: {
         name: string;
         description: string | null;
     }[];
@@ -71,8 +71,8 @@ const CONTRAINDICATION_CATEGORY_LABEL: Record<string, string> = {
     hearing: 'Audición',
     balance: 'Equilibrio',
     neuropathy: 'Neuropatía',
-    cardiotoxicity: 'Cardiotoxicidad severa',
-    osteoporosis: 'Osteoporosis severa',
+    cardiotoxicity_severe: 'Cardiotoxicidad severa',
+    osteoporosis_severe: 'Osteoporosis severa',
 };
 
 const CATEGORY_LABEL: Record<string, string> = {
@@ -258,6 +258,141 @@ function StreakRow({ weeklyCompletion, streak }: { weeklyCompletion: boolean[], 
     );
 }
 
+// ─── selector de fecha ────────────────────────────────────────────────────────
+
+function formatDisplayDate(iso: string): string {
+    if (!iso) return '';
+    const d = new Date(iso + 'T00:00:00');
+    return d.toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' });
+}
+
+function DateField({
+    label, value, onChange, maximumDate,
+}: {
+    label: string;
+    value: string; // 'YYYY-MM-DD'
+    onChange: (v: string) => void;
+    maximumDate?: Date;
+}) {
+    const [showPicker, setShowPicker] = useState(false);
+    const dateValue = value ? new Date(value + 'T00:00:00') : new Date();
+
+    const handleChange = (event: DateTimePickerEvent, selected?: Date) => {
+        if (Platform.OS === 'android') setShowPicker(false);
+        if (event.type === 'dismissed' || !selected) return;
+        onChange(selected.toISOString().slice(0, 10));
+    };
+
+    return (
+        <View style={styles.formField}>
+            <Text style={styles.formLabel}>{label}</Text>
+            <Pressable style={styles.dateTrigger} onPress={() => setShowPicker(true)}>
+                <MaterialIcons name="calendar-today" size={18} color="#6B5B95" />
+                <Text style={value ? styles.dateTriggerText : styles.dropdownPlaceholder}>
+                    {value ? formatDisplayDate(value) : 'Seleccionar fecha'}
+                </Text>
+            </Pressable>
+
+            {showPicker && (
+                <DateTimePicker
+                    value={dateValue}
+                    mode="date"
+                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                    maximumDate={maximumDate}
+                    onChange={handleChange}
+                />
+            )}
+
+            {Platform.OS === 'ios' && showPicker && (
+                <Pressable style={styles.iosDateDoneBtn} onPress={() => setShowPicker(false)}>
+                    <Text style={styles.iosDateDoneText}>Listo</Text>
+                </Pressable>
+            )}
+        </View>
+    );
+}
+
+const translateContraindication = (name: string) => CONTRAINDICATION_CATEGORY_LABEL[name] ?? name;
+
+// ─── desplegable multi-selección de contraindicaciones ────────────────────────
+
+function ContraindicationsDropdown({
+    catalog,
+    selected,
+    onToggle,
+}: {
+    catalog: DashboardData['contraindication'];
+    selected: Set<string>;
+    onToggle: (name: string) => void;
+}) {
+    const [open, setOpen] = useState(false);
+
+    const sortedCatalog = [...catalog].sort((a, b) =>
+        translateContraindication(a.name).localeCompare(translateContraindication(b.name), 'es')
+    );
+
+    return (
+        <View style={styles.formField}>
+            <Text style={styles.formLabel}>Contraindicaciones</Text>
+            <Text style={styles.fieldHint}>
+                Los ejercicios contraindicados se excluirán automáticamente de las sesiones.
+            </Text>
+
+            <Pressable style={styles.dropdownTrigger} onPress={() => setOpen(true)}>
+                <Text style={selected.size > 0 ? styles.dropdownTriggerText : styles.dropdownPlaceholder}>
+                    {selected.size > 0
+                        ? `${selected.size} seleccionada${selected.size > 1 ? 's' : ''}`
+                        : 'Seleccionar contraindicaciones'}
+                </Text>
+                <MaterialIcons name="arrow-drop-down" size={24} color="#6B5B95" />
+            </Pressable>
+
+            {selected.size > 0 && (
+                <View style={styles.chipsWrap}>
+                    {Array.from(selected).map((name) => (
+                        <Pressable key={name} style={styles.chip} onPress={() => onToggle(name)}>
+                            <Text style={styles.chipText}>{translateContraindication(name)}</Text>
+                            <MaterialIcons name="close" size={14} color="#6B5B95" />
+                        </Pressable>
+                    ))}
+                </View>
+            )}
+
+            <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
+                <View style={styles.pickerOverlay}>
+                    <View style={styles.pickerModal}>
+                        <View style={styles.pickerHeader}>
+                            <Text style={styles.pickerTitle}>Contraindicaciones</Text>
+                            <Pressable onPress={() => setOpen(false)}>
+                                <Text style={styles.pickerDone}>Listo</Text>
+                            </Pressable>
+                        </View>
+                        <ScrollView style={styles.pickerList}>
+                            {sortedCatalog.map((item) => {
+                                const isSelected = selected.has(item.name);
+                                return (
+                                    <Pressable
+                                        key={item.name}
+                                        style={[styles.pickerItem, isSelected && styles.pickerItemSelected]}
+                                        onPress={() => onToggle(item.name)}
+                                    >
+                                        <MaterialIcons
+                                            name={isSelected ? 'check-box' : 'check-box-outline-blank'}
+                                            size={20}
+                                            color={isSelected ? '#6B5B95' : '#ccc'}
+                                        />
+                                        <Text style={styles.pickerItemText}>{translateContraindication(item.name)}</Text>
+                                    </Pressable>
+                                );
+                            })}
+                        </ScrollView>
+                    </View>
+                </View>
+            </Modal>
+        </View>
+    );
+}
+
 // ─── modal de edición ────────────────────────────────────────────────────────
 
 function EditProfileModal({
@@ -269,12 +404,14 @@ function EditProfileModal({
 }: {
     visible: boolean;
     initial: DashboardData['profile'];
-    initialContraindications: DashboardData['contraindications'];
+    initialContraindications: DashboardData['contraindication'];
     onClose: () => void;
     onSave: (data: any, contraindicationNames: string[]) => Promise<void>;
 }) {
+    const formatDateString = (d?: string) => (d ? String(d).slice(0, 10) : '');
+
     const [form, setForm] = useState({
-        birthDate: initial?.birthDate ?? '',
+        birthDate: formatDateString(initial?.birthDate),
         age: initial?.age?.toString() ?? '',
         biologicalSex: initial?.biologicalSex ?? 'male',
         tannerStage: initial?.tannerStage ?? '',
@@ -286,12 +423,12 @@ function EditProfileModal({
         currentComorbidities: initial?.currentComorbidities ?? '',
         familyHistory: initial?.familyHistory ?? '',
         diagnosis: initial?.diagnosis ?? '',
-        treatmentEndDate: initial?.treatmentEndDate ?? '',
+        treatmentEndDate: formatDateString(initial?.treatmentEndDate),
         hospital: initial?.hospital ?? '',
     });
     const [saving, setSaving] = useState(false);
 
-    const [catalog, setCatalog] = useState<DashboardData['contraindications']>([]);
+    const [catalog, setCatalog] = useState<DashboardData['contraindication']>([]);
     const [selectedContraindications, setSelectedContraindications] = useState<Set<string>>(
         new Set(initialContraindications.map(c => c.name))
     );
@@ -299,7 +436,7 @@ function EditProfileModal({
     useEffect(() => {
         if (!visible) return;
         setForm({
-            birthDate: initial?.birthDate ?? '',
+            birthDate: formatDateString(initial?.birthDate),
             age: initial?.age?.toString() ?? '',
             biologicalSex: initial?.biologicalSex ?? 'male',
             tannerStage: initial?.tannerStage ?? '',
@@ -311,14 +448,14 @@ function EditProfileModal({
             currentComorbidities: initial?.currentComorbidities ?? '',
             familyHistory: initial?.familyHistory ?? '',
             diagnosis: initial?.diagnosis ?? '',
-            treatmentEndDate: initial?.treatmentEndDate ?? '',
+            treatmentEndDate: formatDateString(initial?.treatmentEndDate),
             hospital: initial?.hospital ?? '',
         });
         setSelectedContraindications(new Set(initialContraindications.map(c => c.name)));
         clinicalProfileService.getContraindicationCatalog()
             .then(setCatalog)
             .catch(() => Alert.alert('Error', 'No se pudo cargar el catálogo de contraindicaciones'));
-    }, [visible, initial]);
+    }, [visible, initial, initialContraindications]);
 
     const toggleContraindication = (name: string) => {
         setSelectedContraindications(prev => {
@@ -327,11 +464,6 @@ function EditProfileModal({
             return next;
         });
     };
-
-    const groupedCatalog = catalog.reduce<Record<string, DashboardData['contraindications']>>((acc, c) => {
-        (acc[c.name] ??= []).push(c);
-        return acc;
-    }, {});
 
     const field = (label: string, key: keyof typeof form, keyboard: any = 'default') => (
         <View style={styles.formField}>
@@ -430,7 +562,12 @@ function EditProfileModal({
                     </Pressable>
                 </View>
                 <ScrollView style={styles.modalScroll} contentContainerStyle={{ padding: 20, gap: 4 }}>
-                    {field('Fecha nacimiento (YYYY-MM-DD)', 'birthDate')}
+                    <DateField
+                        label="Fecha de nacimiento"
+                        value={form.birthDate}
+                        onChange={(v) => setForm(f => ({ ...f, birthDate: v }))}
+                        maximumDate={new Date()}
+                    />
                     {field('Edad en la evaluación', 'age', 'numeric')}
 
                     <View style={styles.formField}>
@@ -475,50 +612,20 @@ function EditProfileModal({
                     {field('Comorbilidades actuales', 'currentComorbidities')}
                     {field('Antecedentes familiares relevantes', 'familyHistory')}
                     {field('Diagnóstico', 'diagnosis')}
-                    {field('Fin tratamiento (YYYY-MM-DD)', 'treatmentEndDate')}
+                    <DateField
+                        label="Fin de tratamiento"
+                        value={form.treatmentEndDate}
+                        onChange={(v) => setForm(f => ({ ...f, treatmentEndDate: v }))}
+                    />
                     {field('Hospital', 'hospital')}
 
                     {/* ── Contraindicaciones ──────────────────────────────────────────── */}
-                    <View style={{ marginTop: 12, marginBottom: 8 }}>
-                        <Text style={styles.formLabel}>Contraindicaciones</Text>
-                        <Text style={{ fontSize: 12, color: '#888', marginTop: 4, marginBottom: 12 }}>
-                            Los ejercicios contraindicados se excluirán automáticamente de las sesiones.
-                        </Text>
-                    </View>
-                    {Object.entries(groupedCatalog).map(([category, items]) => (
-                        <View key={category} style={{ marginBottom: 16 }}>
-                            <Text style={{ fontSize: 11, fontWeight: '700', color: '#888', marginBottom: 8, textTransform: 'uppercase' }}>
-                                {CONTRAINDICATION_CATEGORY_LABEL[category] ?? category}
-                            </Text>
-                            {items.map(item => {
-                                const isSelected = selectedContraindications.has(item.name);
-                                return (
-                                    <Pressable
-                                        key={item.name}
-                                        style={{
-                                            flexDirection: 'row', alignItems: 'center', gap: 12,
-                                            padding: 12, borderRadius: 12, marginBottom: 8,
-                                            backgroundColor: isSelected ? '#F0EDFF' : '#fff',
-                                            borderWidth: 1, borderColor: isSelected ? '#6B5B95' : '#E0E0E0',
-                                        }}
-                                        onPress={() => toggleContraindication(item.name)}
-                                    >
-                                        <MaterialIcons
-                                            name={isSelected ? 'check-box' : 'check-box-outline-blank'}
-                                            size={22}
-                                            color={isSelected ? '#6B5B95' : '#ccc'}
-                                        />
-                                        <View style={{ flex: 1 }}>
-                                            <Text style={{ fontSize: 14, fontWeight: '600', color: '#2D3E50' }}>{item.name}</Text>
-                                            {item.description && (
-                                                <Text style={{ fontSize: 12, color: '#888', marginTop: 2 }}>{item.description}</Text>
-                                            )}
-                                        </View>
-                                    </Pressable>
-                                );
-                            })}
-                        </View>
-                    ))}
+                    <View style={styles.divider} />
+                    <ContraindicationsDropdown
+                        catalog={catalog}
+                        selected={selectedContraindications}
+                        onToggle={toggleContraindication}
+                    />
                 </ScrollView>
             </SafeAreaView>
         </Modal>
@@ -724,8 +831,8 @@ export default function ParentalDashboard() {
                 clinicalProfileService.getContraindications(),
                 routineService.getMyRoutines(),
                 omopSensorService.getRecentSessionsSummary(5),
-                clinicalProfileService.getMoodTrend(14),
-                clinicalProfileService.getPrePostComparison(10),
+                clinicalProfileService.getMoodTrend(180),
+                clinicalProfileService.getPrePostComparison(1),
             ]);
             setData(d);
             setUserId(me.data.id);
@@ -754,9 +861,10 @@ export default function ParentalDashboard() {
         }
     };
 
-    const handleSaveProfile = async (formData: any) => {
+    const handleSaveProfile = async (formData: any, contraindicationNames?: string[]) => {
         await clinicalProfileService.updateProfile(formData);
-        await clinicalProfileService.updateContraindications(contraindications.map(c => c.name));
+        await clinicalProfileService.updateContraindications(contraindicationNames ?? []);
+        await loadDashboard();
     };
 
     const handleExport = async () => {
@@ -911,8 +1019,88 @@ export default function ParentalDashboard() {
 
                 {/* Sesiones por categoría */}
                 <View style={styles.section}>
-                    <SectionTitle icon="directions-run" label="Sesiones por tipo — último mes" />
+                    <SectionTitle icon="directions-run" label="Sesiones por tipo — este mes" />
                     <SessionsChart sessions={sessions} />
+                </View>
+
+                {/* Adherencia */}
+                <View style={styles.section}>
+                    <SectionTitle icon="event-available" label="Adherencia al programa — este mes" />
+                    {adherence ? (
+                        <AdherenceCard adherence={adherence} />
+                    ) : (
+                        <Card><Text style={styles.emptyText}>Sin datos de adherencia</Text></Card>
+                    )}
+                </View>
+
+                {/* Frecuencia cardiaca de la última sesión con datos */}
+                <View style={styles.section}>
+                    <SectionTitle icon="favorite" label="Frecuencia cardiaca — última sesión" />
+                    <Card>
+                        <MiniLineChart
+                            data={(() => {
+                                if (sessionHeartRate.length === 0) return [];
+                                const t0 = new Date(sessionHeartRate[0].timestamp).getTime();
+                                return sessionHeartRate.map(h => ({
+                                    label: `${Math.round((new Date(h.timestamp).getTime() - t0) / 60000)}m`,
+                                    value: h.value,
+                                }));
+                            })()}
+                            color="#E74C3C"
+                            yLabel="bpm"
+                            showYLabels
+                            showXLabels
+                            maxXLabels={6}
+                        />
+                    </Card>
+                </View>
+
+                {/* Comparativa antes/después de la última sesión */}
+                <View style={styles.section}>
+                    <SectionTitle icon="compare-arrows" label="Antes vs. después — última sesión" />
+                    <Card>
+                        {prePost.length === 0 ? (
+                            <Text style={styles.emptyText}>Sin datos de la última sesión</Text>
+                        ) : (
+                            prePost.map(p => {
+                                const improved = p.metric === 'Ánimo'
+                                    ? p.after >= p.before
+                                    : p.after <= p.before;
+                                const afterColor = improved ? '#2D9E75' : '#E74C3C';
+                                const delta = (p.after - p.before).toFixed(1);
+                                const deltaSign = p.after > p.before ? '+' : '';
+                                return (
+                                    <View key={p.metric} style={{ marginBottom: 14 }}>
+                                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                                            <Text style={{ fontSize: 13, fontWeight: '600', color: '#2D3E50' }}>{p.metric}</Text>
+                                            <Text style={{ fontSize: 12, color: afterColor, fontWeight: '700' }}>
+                                                {deltaSign}{delta}
+                                            </Text>
+                                        </View>
+                                        {/* Barra ANTES */}
+                                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                                            <Text style={{ fontSize: 10, color: '#aaa', width: 36 }}>Antes</Text>
+                                            <View style={{ flex: 1, height: 8, backgroundColor: '#E0E0E0', borderRadius: 4, overflow: 'hidden' }}>
+                                                <View style={{ width: `${(p.before / 5) * 100}%`, height: '100%', backgroundColor: '#9E9E9E' }} />
+                                            </View>
+                                            <Text style={{ fontSize: 12, color: '#888', width: 22, textAlign: 'right' }}>{p.before}</Text>
+                                        </View>
+                                        {/* Barra DESPUÉS */}
+                                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 }}>
+                                            <Text style={{ fontSize: 10, color: '#aaa', width: 36 }}>Después</Text>
+                                            <View style={{ flex: 1, height: 8, backgroundColor: '#E0E0E0', borderRadius: 4, overflow: 'hidden' }}>
+                                                <View style={{ width: `${(p.after / 5) * 100}%`, height: '100%', backgroundColor: afterColor }} />
+                                            </View>
+                                            <Text style={{ fontSize: 12, color: afterColor, fontWeight: '600', width: 22, textAlign: 'right' }}>{p.after}</Text>
+                                        </View>
+                                    </View>
+                                );
+                            })
+                        )}
+                        <Text style={{ fontSize: 11, color: '#aaa', marginTop: 4 }}>
+                            Escala 1–5 · Verde = mejora · Rojo = empeora
+                        </Text>
+                    </Card>
                 </View>
 
                 {/* Bienestar */}
@@ -924,66 +1112,9 @@ export default function ParentalDashboard() {
                     }
                 </View>
 
-                {/* Ritmo cardiaco de la última sesión con datos */}
+                {/* Actividad cardiaca reciente 5 sesiones (sensores) */}
                 <View style={styles.section}>
-                    <SectionTitle icon="favorite" label="Ritmo cardiaco — última sesión" />
-                    <Card>
-                        <MiniLineChart
-                            data={sessionHeartRate.map((h, i) => ({ label: `${i}`, value: h.value }))}
-                            color="#E74C3C"
-                        />
-                    </Card>
-                </View>
-
-                {/* Evolución del ánimo */}
-                <View style={styles.section}>
-                    <SectionTitle icon="mood" label="Evolución del ánimo" />
-                    <Card>
-                        <MiniLineChart
-                            data={moodTrend.map(m => ({
-                                label: new Date(m.date).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' }),
-                                value: m.mood,
-                            }))}
-                            minValue={1}
-                            maxValue={5}
-                            color="#F0C040"
-                        />
-                    </Card>
-                </View>
-
-                {/* Comparativa antes/después de entrenar */}
-                <View style={styles.section}>
-                    <SectionTitle icon="compare-arrows" label="Antes vs. después de entrenar" />
-                    <Card>
-                        {prePost.map(p => (
-                            <View key={p.metric} style={{ marginBottom: 12 }}>
-                                <Text style={{ fontSize: 13, fontWeight: '600', color: '#2D3E50', marginBottom: 4 }}>{p.metric}</Text>
-                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                                    <View style={{ flex: 1, height: 8, backgroundColor: '#E0E0E0', borderRadius: 4, overflow: 'hidden' }}>
-                                        <View style={{ width: `${(p.before / 5) * 100}%`, height: '100%', backgroundColor: '#888' }} />
-                                    </View>
-                                    <Text style={{ fontSize: 12, color: '#888', width: 30 }}>{p.before}</Text>
-                                </View>
-                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 }}>
-                                    <View style={{ flex: 1, height: 8, backgroundColor: '#E0E0E0', borderRadius: 4, overflow: 'hidden' }}>
-                                        <View style={{
-                                            width: `${(p.after / 5) * 100}%`, height: '100%',
-                                            backgroundColor: p.metric !== 'Ánimo' && p.after > p.before ? '#E74C3C' : '#2D9E75',
-                                        }} />
-                                    </View>
-                                    <Text style={{ fontSize: 12, color: '#888', width: 30 }}>{p.after}</Text>
-                                </View>
-                            </View>
-                        ))}
-                        <Text style={{ fontSize: 11, color: '#aaa', marginTop: 4 }}>
-                            Barra gris = antes de entrenar · Barra de color = después
-                        </Text>
-                    </Card>
-                </View>
-
-                {/* Actividad cardiaca reciente (sensores) */}
-                <View style={styles.section}>
-                    <SectionTitle icon="favorite" label="Frecuencia cardiaca — últimas sesiones" />
+                    <SectionTitle icon="favorite" label="Frecuencia cardiaca — últimas sesiones (5)" />
                     {sensorSummaries.length === 0 ? (
                         <Card><Text style={styles.emptyText}>Sin datos de sensores todavía</Text></Card>
                     ) : (
@@ -1016,14 +1147,24 @@ export default function ParentalDashboard() {
                     )}
                 </View>
 
-                {/* Adherencia */}
+                {/* Evolución del ánimo — últimos 6 meses */}
                 <View style={styles.section}>
-                    <SectionTitle icon="event-available" label="Adherencia al programa — este mes" />
-                    {adherence ? (
-                        <AdherenceCard adherence={adherence} />
-                    ) : (
-                        <Card><Text style={styles.emptyText}>Sin datos de adherencia</Text></Card>
-                    )}
+                    <SectionTitle icon="mood" label="Evolución del ánimo — últimos 6 meses" />
+                    <Card>
+                        <MiniLineChart
+                            data={moodTrend.map(m => ({
+                                label: new Date(m.date).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' }),
+                                value: m.mood,
+                            }))}
+                            minValue={1}
+                            maxValue={5}
+                            color="#F0C040"
+                            yLabel="ánimo (1-5)"
+                            showYLabels
+                            showXLabels
+                            maxXLabels={6}
+                        />
+                    </Card>
                 </View>
 
                 {/* Notas */}
@@ -1320,4 +1461,59 @@ const styles = StyleSheet.create({
         fontWeight: '600',
         color: '#6B5B95',
     },
+    divider: {
+        height: 1,
+        backgroundColor: '#E0E0E0', // Color gris claro
+        marginVertical: 16,        // Espaciado arriba y abajo
+        width: '100%',
+    },
+    fieldHint: { fontSize: 12, color: '#888', marginBottom: 8 },
+
+    dateTrigger: {
+        flexDirection: 'row', alignItems: 'center', gap: 8,
+        backgroundColor: '#fff', borderRadius: 10,
+        borderWidth: 0.5, borderColor: '#E0E0E0',
+        paddingHorizontal: 12, paddingVertical: 12,
+    },
+    dateTriggerText: { fontSize: 15, color: '#2D3E50' },
+    iosDateDoneBtn: { alignSelf: 'flex-end', paddingVertical: 8, paddingHorizontal: 4 },
+    iosDateDoneText: { fontSize: 14, fontWeight: '600', color: '#6B5B95' },
+
+    dropdownTrigger: {
+        flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+        backgroundColor: '#fff', borderRadius: 10,
+        borderWidth: 0.5, borderColor: '#E0E0E0',
+        paddingHorizontal: 12, paddingVertical: 12,
+    },
+    dropdownTriggerText: { fontSize: 15, color: '#2D3E50' },
+    dropdownPlaceholder: { fontSize: 15, color: '#aaa' },
+
+    chipsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
+    chip: {
+        flexDirection: 'row', alignItems: 'center', gap: 6,
+        backgroundColor: '#F0EDFF', borderRadius: 14,
+        paddingHorizontal: 12, paddingVertical: 6,
+        borderWidth: 1, borderColor: '#D4C5E8',
+    },
+    chipText: { fontSize: 13, color: '#6B5B95', fontWeight: '600' },
+
+    pickerOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
+    pickerModal: {
+        backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20,
+        maxHeight: '75%', paddingBottom: 20,
+    },
+    pickerHeader: {
+        flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+        padding: 16, borderBottomWidth: 0.5, borderBottomColor: '#E0E0E0',
+    },
+    pickerTitle: { fontSize: 16, fontWeight: '700', color: '#2D3E50' },
+    pickerDone: { fontSize: 15, fontWeight: '600', color: '#6B5B95' },
+    pickerList: { paddingHorizontal: 16, paddingTop: 12 },
+    pickerCategoryLabel: { fontSize: 11, fontWeight: '700', color: '#888', marginBottom: 8, textTransform: 'uppercase' },
+    pickerItem: {
+        flexDirection: 'row', alignItems: 'center', gap: 10,
+        paddingVertical: 10, paddingHorizontal: 10, borderRadius: 10, marginBottom: 4,
+    },
+    pickerItemSelected: { backgroundColor: '#F0EDFF' },
+    pickerItemText: { fontSize: 14, color: '#2D3E50', flex: 1 },
 });

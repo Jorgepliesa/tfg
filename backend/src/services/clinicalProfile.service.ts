@@ -148,7 +148,7 @@ export class ClinicalProfileService {
         monthStart.setHours(0, 0, 0, 0);
 
         const sessionsThisMonth = await this.sessionRepository.count({
-            where: { userId, date: Between(monthStart, new Date()) },
+            where: { userId, date: Between(monthStart, new Date()), duration: MoreThan(0) },
         });
 
         return {
@@ -339,12 +339,13 @@ export class ClinicalProfileService {
         const initials = tests.filter(t => t.type === WellnessTestType.INITIAL);
         const finals = tests.filter(t => t.type === WellnessTestType.FINAL);
 
-        const avg = (arr: typeof tests, field: 'pain' | 'fatigue' | 'mood') =>
+        const avg = (arr: typeof tests, field: 'pain' | 'fatigue' | 'sleepiness' | 'mood') =>
             arr.length > 0 ? Math.round((arr.reduce((sum, t) => sum + t[field], 0) / arr.length) * 10) / 10 : 0;
 
         return [
             { metric: 'Dolor', before: avg(initials, 'pain'), after: avg(finals, 'pain') },
             { metric: 'Fatiga', before: avg(initials, 'fatigue'), after: avg(finals, 'fatigue') },
+            { metric: 'Sueño', before: avg(initials, 'sleepiness'), after: avg(finals, 'sleepiness') },
             { metric: 'Ánimo', before: avg(initials, 'mood'), after: avg(finals, 'mood') },
         ];
     }

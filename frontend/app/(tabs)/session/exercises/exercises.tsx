@@ -17,11 +17,23 @@ export default function Exercises() {
     const [currentSerie, setCurrentSerie] = useState(1);
     const [repsThisSerie, setRepsThisSerie] = useState(0);
     const [completedSeries, setCompletedSeries] = useState<number[]>([]);
+    const [pendingGoToNext, setPendingGoToNext] = useState(false);
 
     const tInitialRef = useRef<Date>(new Date());
     const tapScaleAnim = useRef(new Animated.Value(1)).current;
     // Ref para saber si ya navegamos, evita doble goToNext
     const navigatingRef = useRef(false);
+
+    const goToNext = () => {
+        if (currentExerciseIndex >= exercises.length - 1) {
+            // Reached the end, go to final test
+            router.push({ pathname: '/(tabs)/session/wellnessTest', params: { type: 'final' } });
+            return;
+        }
+        else {
+            moveToNextExercise();
+        }
+    };
 
     // ── Temporizador del propio ejercicio (para ejercicios "por tiempo") ────
     const [timeRemaining, setTimeRemaining] = useState(0);
@@ -58,6 +70,7 @@ export default function Exercises() {
         setCurrentSerie(1);
         setCompletedSeries([]);
         setIsResting(false);
+        setPendingGoToNext(false);
         navigatingRef.current = false;
 
         const timed = currentExercise.duration != null && Number(currentExercise.duration) > 0;
@@ -79,11 +92,16 @@ export default function Exercises() {
         if (restTimer <= 0) {
             // Tiempo agotado — salir del descanso y preparar siguiente serie
             setIsResting(false);
-            if (isTimed && currentExercise) {
-                setTimeRemaining(Math.round(Number(currentExercise.duration) * 60));
-                setTimerRunning(true);
+            if (pendingGoToNext) {
+                setPendingGoToNext(false);
+                goToNext();
             } else {
-                setRepsThisSerie(currentExercise?.numReps ?? 0);
+                if (isTimed && currentExercise) {
+                    setTimeRemaining(Math.round(Number(currentExercise.duration) * 60));
+                    setTimerRunning(true);
+                } else {
+                    setRepsThisSerie(currentExercise?.numReps ?? 0);
+                }
             }
             return;
         }
@@ -93,7 +111,7 @@ export default function Exercises() {
         }, 1000);
 
         return () => clearInterval(timer);
-    }, [isResting, restTimer]);
+    }, [isResting, restTimer, pendingGoToNext]);
 
     // ── Efecto 3: cuenta atrás del propio ejercicio (si es "por tiempo") ────
     useEffect(() => {
@@ -156,11 +174,16 @@ export default function Exercises() {
     const handleSkipRest = () => {
         setRestTimer(0);
         setIsResting(false);
-        if (isTimed && currentExercise) {
-            setTimeRemaining(Math.round(Number(currentExercise.duration) * 60));
-            setTimerRunning(true);
+        if (pendingGoToNext) {
+            setPendingGoToNext(false);
+            goToNext();
         } else {
-            setRepsThisSerie(currentExercise?.numReps ?? 0);
+            if (isTimed && currentExercise) {
+                setTimeRemaining(Math.round(Number(currentExercise.duration) * 60));
+                setTimerRunning(true);
+            } else {
+                setRepsThisSerie(currentExercise?.numReps ?? 0);
+            }
         }
     };
 
@@ -194,19 +217,15 @@ export default function Exercises() {
             setSavingExercise(false);
         }
 
-        goToNext();
+        if (currentExerciseIndex >= exercises.length - 1) {
+            goToNext();
+        } else {
+            setPendingGoToNext(true);
+            setRestTimer(currentExercise.rest > 0 ? currentExercise.rest : 10);
+            setIsResting(true);
+        }
     };
 
-    const goToNext = () => {
-        if (currentExerciseIndex >= exercises.length - 1) {
-            // Reached the end, go to final test
-            router.push({ pathname: '/(tabs)/session/wellnessTest', params: { type: 'final' } });
-            return;
-        }
-        else {
-            moveToNextExercise();
-        }
-    };
 
     if (!currentExercise) {
         return (
@@ -220,6 +239,7 @@ export default function Exercises() {
 
     // ── pantalla de descanso ─────────────────────────────────────────────────
     if (isResting) {
+        const nextExercise = exercises[currentExerciseIndex + 1];
         return (
             <SafeAreaView style={styles.safeContainer}>
                 <View style={[styles.container, { backgroundColor: '#E8F5E9' }]}>
@@ -229,9 +249,11 @@ export default function Exercises() {
                         {restTimer} segundos
                     </Text>
                     <View style={styles.restNextBox}>
-                        <Text style={styles.restNextLabel}>Serie siguiente</Text>
+                        <Text style={styles.restNextLabel}>
+                            {pendingGoToNext ? 'Siguiente ejercicio' : 'Serie siguiente'}
+                        </Text>
                         <Text style={styles.restNextValue}>
-                            {currentSerie} de {currentExercise.numSeries}
+                            {pendingGoToNext ? (nextExercise?.exerciseName ?? '') : `${currentSerie} de ${currentExercise.numSeries}`}
                         </Text>
                     </View>
 
@@ -336,6 +358,44 @@ export default function Exercises() {
                 {/* Descripción */}
                 <View style={styles.descriptionBox}>
                     <Text style={styles.descriptionText}>{currentExercise.description}</Text>
+                </View>
+
+                {/* Material necesario */}
+                <View style={styles.infoListBox}>
+                    <View style={styles.infoListHeader}>
+                        <MaterialIcons name="fitness-center" size={16} color="#6B5B95" />
+                        <Text style={styles.infoListTitle}>Material necesario</Text>
+                    </View>
+                    {currentExercise.equipment.length > 0 ? (
+                        <View style={styles.chipsRow}>
+                            {currentExercise.equipment.map((item) => (
+                                <View key={item} style={styles.chip}>
+                                    <Text style={styles.chipText}>{item}</Text>
+                                </View>
+                            ))}
+                        </View>
+                    ) : (
+                        <Text style={styles.infoListEmpty}>Ninguno</Text>
+                    )}
+                </View>
+
+                {/* Parámetros a medir */}
+                <View style={styles.infoListBox}>
+                    <View style={styles.infoListHeader}>
+                        <MaterialIcons name="monitor-heart" size={16} color="#6B5B95" />
+                        <Text style={styles.infoListTitle}>Parámetros a medir</Text>
+                    </View>
+                    {currentExercise.measurementParameters.length > 0 ? (
+                        <View style={styles.chipsRow}>
+                            {currentExercise.measurementParameters.map((item) => (
+                                <View key={item} style={[styles.chip, styles.chipMeasurement]}>
+                                    <Text style={styles.chipText}>{item}</Text>
+                                </View>
+                            ))}
+                        </View>
+                    ) : (
+                        <Text style={styles.infoListEmpty}>Ninguno</Text>
+                    )}
                 </View>
 
                 {/* Selector de repeticiones */}
@@ -639,4 +699,21 @@ const styles = StyleSheet.create({
     },
     timerValue: { fontSize: 48, fontWeight: '800', color: '#6B5B95', lineHeight: 54 },
     timerLabel: { fontSize: 13, color: '#888', fontWeight: '600', marginTop: 4 },
+    infoListBox: {
+        marginHorizontal: 20, marginBottom: 12,
+        backgroundColor: '#fff', borderRadius: 12, padding: 12,
+        borderWidth: 0.5, borderColor: '#E0E0E0',
+    },
+    infoListHeader: {
+        flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6,
+    },
+    infoListTitle: { fontSize: 13, fontWeight: '600', color: '#2D3E50' },
+    infoListEmpty: { fontSize: 13, color: '#aaa' },
+    chipsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+    chip: {
+        backgroundColor: '#F0EDFF', borderRadius: 10,
+        paddingHorizontal: 10, paddingVertical: 4,
+    },
+    chipMeasurement: { backgroundColor: '#E8F5E9' },
+    chipText: { fontSize: 12, color: '#6B5B95', fontWeight: '500' },
 });

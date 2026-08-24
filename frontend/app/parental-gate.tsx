@@ -5,168 +5,160 @@ import { useState } from "react";
 import { Alert, View, StyleSheet, TextInput, Pressable, Text, Platform, Modal } from "react-native";
 
 interface ParentalGateModalProps {
-    onClose: () => void;
+  onClose: () => void;
 }
 
 export function ParentalGateModal({ onClose }: ParentalGateModalProps) {
-    const [password, setPassword] = useState('');
-    const [loading, setLoading] = useState(false);
-    const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
-    const handleVerifyPassword = async () => {
-        if(!password.trim()) {
-            Alert.alert('Error', 'Please, enter a password.');
-            return;
-        }
+  const handleVerifyPassword = async () => {
+    if (!password.trim()) {
+      Alert.alert('Error', 'Please, enter a password.');
+      return;
+    }
 
-        setLoading(true);
-        try{
-            // TODO: Verificar contraseña con backend (endpoint específico para supervisores)
-            const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/auth/verify-parental`, {
-                method: 'POST',
-                headers: { 
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${await authService.getAccessToken()}` // Asegúrate de tener el token de acceso para autenticar la solicitud
-                },
-                body: JSON.stringify({ password }),
-            });
+    setLoading(true);
+    try {
+      // TODO: Verificar contraseña con backend (endpoint específico para supervisores)
+      const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/auth/verify-parental`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${await authService.getAccessToken()}` // Asegúrate de tener el token de acceso para autenticar la solicitud
+        },
+        body: JSON.stringify({ password }),
+      });
 
-            const data = await response.json();
+      const data = await response.json();
 
-            if(!data.valid) {
-                Alert.alert('Error', 'Wrong password. Please try again.');
-                return;
-            }
+      if (!data.valid) {
+        Alert.alert('Error', 'Contraseña incorrecta. Pruebe de nuevo.');
+        return;
+      }
 
-            // Contraseña correcta -> Ir a panel de supervisión
-            onClose();
-            router.push('/parental-dashboard');
-        } catch (error) {
-            Alert.alert('Error', 'An error occurred while verifying the password. Please try again.');
-        } finally {
-            setLoading(false);
-        }
-    };
+      // Contraseña correcta -> Ir a panel de supervisión
+      onClose();
+      router.push('/parental-dashboard');
+    } catch (error) {
+      Alert.alert('Error', 'Ha ocurrido un error al verificar la contraseña. Por favor, inténtelo de nuevo.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    const handleLogout = async () => {
-        if(Platform.OS === 'web') {
-          setShowLogoutConfirm(true);
-        }
-        else{
-            Alert.alert('Confirm Logout', 'Are you sure you want to log out?', 
-                [
-                    { text: 'Cancel', style: 'cancel' },
-                    { text: 'Logout', style: 'destructive', onPress: confirmLogout },
-                ]
-            );
-        }
-    };
+  const handleLogout = async () => {
+    if (Platform.OS === 'web') {
+      setShowLogoutConfirm(true);
+    }
+    else {
+      Alert.alert('Confirmar cierre de sesión', '¿Estás seguro de que quieres cerrar la sesión?',
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          { text: 'Cerrar sesión', style: 'destructive', onPress: confirmLogout },
+        ]
+      );
+    }
+  };
 
-    const confirmLogout = async () => {
-        await authService.logout();
-        onClose();
-        router.replace('/login');
-    };
+  const confirmLogout = async () => {
+    await authService.logout();
+    onClose();
+    router.replace('/login');
+  };
 
-    return (
-      <View style={styles.overlay}>
-          <View style={styles.modal}>
-              {/* Boton cerrar */}
-              <Pressable style={styles.closeButton} onPress={onClose}>
-                  <MaterialIcons name="close" size={28} color="#6B5B95" />
-              </Pressable>
+  return (
+    <View style={styles.overlay}>
+      <View style={styles.modal}>
+        {/* Boton cerrar */}
+        <Pressable style={styles.closeButton} onPress={onClose}>
+          <MaterialIcons name="close" size={28} color="#6B5B95" />
+        </Pressable>
 
-              {/* Icono de candado */}
-              <MaterialIcons name="lock" size={48} color="#6B5B95" style={styles.lockIcon} />
-              <Text style={styles.modalTitle}>Parental Gate</Text>
-              <Text style={styles.modalSubtitle}>Please enter the parental password to access the dashboard.</Text>
+        {/* Icono de candado */}
+        <MaterialIcons name="lock" size={48} color="#6B5B95" style={styles.lockIcon} />
+        <Text style={styles.modalTitle}>Control Parental</Text>
+        <Text style={styles.modalSubtitle}>Por favor, introduzca la contraseña para acceder al panel de información. </Text>
 
-              {/* Input de contraseña */}
-              <TextInput
-                  style={styles.passwordInput}
-                  placeholder="Parental Password"
-                  placeholderTextColor={'#999'}
-                  secureTextEntry
-                  value={password}
-                  onChangeText={setPassword}
-                  autoFocus
-              />
+        {/* Input de contraseña */}
+        <TextInput
+          style={styles.passwordInput}
+          placeholder="Contraseña de supervisor"
+          placeholderTextColor={'#999'}
+          secureTextEntry
+          value={password}
+          onChangeText={setPassword}
+          autoFocus
+        />
 
-              {/* Botón de verificación */}
+        {/* Botón de verificación */}
+        <Pressable
+          style={({ pressed }) => [
+            styles.verifyButton,
+            pressed && styles.buttonPressed,
+          ]}
+          onPress={handleVerifyPassword}
+          disabled={loading}
+        >
+          <Text style={styles.verifyButtonText}>{loading ? 'Verificando...' : 'Acceder'}</Text>
+        </Pressable>
+
+        {/* Botón de cierre de sesión */}
+        <Pressable
+          style={({ pressed }) => [
+            styles.logoutButton,
+            pressed && styles.buttonPressed,
+          ]}
+          onPress={handleLogout}
+        >
+          <MaterialIcons name="logout" size={20} color="#FF6B6B" />
+          <Text style={styles.logoutButtonText}>Logout</Text>
+        </Pressable>
+      </View>
+
+      {/* Modal confirmación logout en web */}
+      <Modal
+        visible={showLogoutConfirm}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowLogoutConfirm(false)}
+      >
+        <View style={styles.confirmOverlay}>
+          <View style={styles.confirmModal}>
+            <Text style={styles.confirmTitle}>Confirmar cierre de sesión</Text>
+            <Text style={styles.confirmMessage}>¿Estás seguro de que quieres cerrar la sesión?</Text>
+            <View style={styles.confirmButtons}>
               <Pressable
-                  style={({ pressed }) => [
-                      styles.verifyButton,
-                      pressed && styles.buttonPressed,
-                  ]}
-                  onPress={handleVerifyPassword}
-                  disabled={loading}
+                style={({ pressed }) => [
+                  styles.confirmButton,
+                  styles.cancelButton,
+                  pressed && styles.buttonPressed,
+                ]}
+                onPress={() => setShowLogoutConfirm(false)}
               >
-                  <Text style={styles.verifyButtonText}>{loading ? 'Verifying...' : 'Access'}</Text>
+                <Text style={styles.cancelButtonText}>Cancelar</Text>
               </Pressable>
 
-              {/* Información de futuras características */}
-              <View style={styles.futureFeatures}>
-                  <Text style={styles.futureFeaturesTitle}>Future Features:</Text>
-                  <Text style={styles.featureText}>- View child's medical history</Text>
-                  <Text style={styles.featureText}>- Medical configuration </Text>
-                  <Text style={styles.featureText}>- View child's progress</Text>
-              </View>
-
-              {/* Botón de cierre de sesión */}
               <Pressable
-                  style={({ pressed }) => [
-                      styles.logoutButton,
-                      pressed && styles.buttonPressed,
-                  ]}
-                  onPress={handleLogout}
+                style={({ pressed }) => [
+                  styles.confirmButton,
+                  styles.confirmLogoutButton,
+                  pressed && styles.buttonPressed,
+                ]}
+                onPress={() => {
+                  setShowLogoutConfirm(false);
+                  confirmLogout();
+                }}
               >
-                  <MaterialIcons name="logout" size={20} color="#FF6B6B" />
-                  <Text style={styles.logoutButtonText}>Logout</Text>
+                <Text style={styles.confirmLogoutButtonText}>Logout</Text>
               </Pressable>
-          </View>
-
-          {/* Modal confirmación logout en web */}
-          <Modal 
-            visible={showLogoutConfirm}
-            transparent
-            animationType="fade"
-            onRequestClose={() => setShowLogoutConfirm(false)}
-          >
-            <View style={styles.confirmOverlay}>
-              <View style={styles.confirmModal}>
-                <Text style={styles.confirmTitle}>Confirm Logout</Text>
-                  <Text style={styles.confirmMessage}>Are you sure you want to log out?</Text>
-                  <View style={styles.confirmButtons}>
-                      <Pressable
-                          style={({ pressed }) => [
-                              styles.confirmButton,
-                              styles.cancelButton,
-                              pressed && styles.buttonPressed,
-                          ]}
-                          onPress={() => setShowLogoutConfirm(false)}
-                      >
-                          <Text style={styles.cancelButtonText}>Cancel</Text>
-                      </Pressable>
-
-                      <Pressable
-                          style={({ pressed }) => [
-                              styles.confirmButton,
-                              styles.confirmLogoutButton,
-                              pressed && styles.buttonPressed,
-                          ]}
-                          onPress={() => {
-                              setShowLogoutConfirm(false);
-                              confirmLogout();
-                          }}
-                      >
-                          <Text style={styles.confirmLogoutButtonText}>Logout</Text>
-                      </Pressable>
-                  </View>
-              </View>
             </View>
-          </Modal>
+          </View>
         </View>
-    );
+      </Modal>
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
@@ -270,7 +262,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginLeft: 8,
   },
-// Estilos del modal de confirmación
+  // Estilos del modal de confirmación
   confirmOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.7)',

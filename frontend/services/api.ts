@@ -19,6 +19,10 @@ const api = axios.create({
   timeout: 10000,
 });
 
+// URL base del backend — usar para construir URLs de imágenes estáticas
+export const BACKEND_URL = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.0.32:3000';
+
+
 // Flag para evitar múltiples intentos de refresh simultáneos
 let isRefreshing = false;
 let refreshSubscribers: Array<(token: string) => void> = [];

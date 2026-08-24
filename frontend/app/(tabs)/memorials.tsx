@@ -2,16 +2,19 @@ import { useRouter } from 'expo-router';
 import {
     View, Text, StyleSheet, Pressable, ScrollView,
     ActivityIndicator, Alert, Animated, Dimensions,
-    Modal, Image, Platform,
+    Modal, Platform,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { MaterialIcons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState, useCallback, useRef } from 'react';
 import { useFocusEffect } from 'expo-router';
 import { memorialService } from '../../services/memorialService';
+import { BACKEND_URL } from "@/services/api";
+
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const CARD_WIDTH = (SCREEN_WIDTH - 64) / 2; // 2 columnas con padding
+const CARD_WIDTH = (SCREEN_WIDTH - 104) / 2; // 2 columnas con padding, margen y espaciado
 const CARDS_PER_PAGE = 6; // 2 col x 3 rows por página
 
 interface Memorial {
@@ -71,13 +74,12 @@ function MemorialCard({
             >
                 {memorial.unlocked ? (
                     <>
-                        {/* Imagen o icono */}
+                        {/* Imagen */}
                         <View style={[styles.cardImageBox, { backgroundColor: 'rgba(255,255,255,0.5)' }]}>
                             {memorial.image ? (
                                 <Image
                                     source={{ uri: memorial.image }}
                                     style={styles.cardImage}
-                                    resizeMode="cover"
                                 />
                             ) : (
                                 <MaterialIcons name="favorite" size={36} color="#6B5B95" />
@@ -523,7 +525,7 @@ const styles = StyleSheet.create({
     },
     cardImageBox: {
         width: CARD_WIDTH - 28,
-        height: (CARD_WIDTH - 28) * 0.8,
+        height: (CARD_WIDTH - 14),
         borderRadius: 10,
         justifyContent: 'center',
         alignItems: 'center',
@@ -609,7 +611,7 @@ const styles = StyleSheet.create({
         justifyContent: 'center', gap: 16,
     },
     detailImageBox: {
-        width: 180, height: 180,
+        width: 220, height: 240,
         borderRadius: 16,
         backgroundColor: 'rgba(255,255,255,0.5)',
         justifyContent: 'center', alignItems: 'center',

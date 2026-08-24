@@ -4,14 +4,19 @@ import { shopService } from "@/services/shopService";
 import { challengeService, CoopChallengeData } from "@/services/coopChallengeService";
 import MaterialIcons from "@expo/vector-icons/build/MaterialIcons";
 import { router, useFocusEffect, useRouter } from "expo-router";
-import { useCallback, useRef, useState } from "react";
+import React, { useCallback, useRef, useState } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   ImageBackground, Text, View, StyleSheet, ActivityIndicator,
-  Platform, Dimensions, Image, Pressable, Alert, ScrollView,
-  NativeSyntheticEvent, NativeScrollEvent,
+  Platform, Dimensions, Pressable, Alert, ScrollView,
+  NativeSyntheticEvent, NativeScrollEvent, Modal, Animated, Easing,
 } from "react-native";
+import { Image } from "expo-image";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ItemCategory, EquippedItem, AvatarDisplay } from "./avatar";
+import { BACKEND_URL } from "@/services/api";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { SquareActivity } from "lucide-react-native";
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -36,7 +41,7 @@ const CATEGORY_COLORS: Record<Category, string> = {
 interface KeepEntry {
   item: string;
   isWearing: boolean;
-  itemEntity: { name: string; type: Category; cost: number; };
+  itemEntity: { name: string; type: Category; cost: number; image: string; };
 }
 
 // Indicadores de las páginas
@@ -55,6 +60,11 @@ export default function Home() {
   const [numSteps, setSteps] = useState<number>(0);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState<number>(1); // 0=coop, 1=home, 2=inventario
+
+  // ── Estado Bonus Diario ──────────────────────────────────────────────────────
+  const [showDailyBonus, setShowDailyBonus] = useState(false);
+  const bonusAnim = useRef(new Animated.Value(0)).current;
+  const bonusScale = useRef(new Animated.Value(0.5)).current;
 
   // ── Estado Retos Cooperativos ────────────────────────────────────────────────
   const [coopChallenge, setCoopChallenge] = useState<CoopChallengeData | null>(null);
@@ -95,6 +105,45 @@ export default function Home() {
     }
   };
 
+  const DAILY_BONUS_KEY = 'dailyBonus_lastDate';
+  const DAILY_BONUS_AMOUNT = 10;
+
+  const checkAndGrantDailyBonus = async (): Promise<number> => {
+    try {
+      const today = new Date().toISOString().split('T')[0]; // 'YYYY-MM-DD'
+      const lastDate = await AsyncStorage.getItem(DAILY_BONUS_KEY);
+      if (lastDate !== today) {
+        // Primera visita del día: otorgar bonus
+        const result = await avatarService.addFitnessPoints(DAILY_BONUS_AMOUNT);
+        await AsyncStorage.setItem(DAILY_BONUS_KEY, today);
+        return result.fp;
+      }
+    } catch (error) {
+      console.error('Error checking daily bonus:', error);
+    }
+    return -1; // -1 indica que NO se otorgó bonus hoy
+  };
+
+  const triggerBonusAnimation = () => {
+    bonusAnim.setValue(0);
+    bonusScale.setValue(0.5);
+    setShowDailyBonus(true);
+    Animated.parallel([
+      Animated.timing(bonusAnim, {
+        toValue: 1,
+        duration: 400,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.spring(bonusScale, {
+        toValue: 1,
+        friction: 5,
+        tension: 120,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  };
+
   const loadHomeData = async () => {
     try {
       setLoading(true);
@@ -104,6 +153,13 @@ export default function Home() {
       ]);
       setFp(fitnessPoints);
       setSteps(steps);
+
+      // Comprobar bonus diario (después de cargar FP base)
+      const newFp = await checkAndGrantDailyBonus();
+      if (newFp !== -1) {
+        setFp(newFp);
+        triggerBonusAnimation();
+      }
     } catch (error) {
       console.error('Error loading home data:', error);
     } finally {
@@ -259,8 +315,8 @@ export default function Home() {
               <Pressable
                 style={({ pressed }) => [styles.infoButton, pressed && { opacity: 0.6 }]}
                 onPress={() => Alert.alert(
-                  'Retos Cooperativos 🤝',
-                  '¡Trabajad juntos para derrotar al enemigo! Todos los pasos de la comunidad de FitGame se suman para quitar vida al monstruo.\n\nCamina en tu vida diaria y tus pasos dañarán al jefe en tiempo real. ¡Consigue el objetivo de pasos antes del fin del plazo para ganar!'
+                  'Retos Cooperativos ',
+                  '¡Trabajad juntos para derrotar al enemigo! Todos los pasos de la comunidad de HealthGame se suman para quitar vida al monstruo.\n\nCamina en tu vida diaria y tus pasos dañarán al jefe en tiempo real. ¡Consigue el objetivo de pasos antes del fin del plazo para ganar!'
                 )}
               >
                 <MaterialIcons name="info-outline" size={26} color="#fff" />
@@ -310,7 +366,7 @@ export default function Home() {
                   <View style={styles.bossCircle}>
                     {/* Imagen del avatar como enemigo de marcador de posición (tintado en rojo y oscuro) */}
                     <Image
-                      source={require('@/assets/images/Avatar.png')}
+                      source={{ uri: `${BACKEND_URL}/uploads/coop_challenge/snake.svg` }}
                       style={styles.bossImage}
                     />
                   </View>
@@ -329,7 +385,7 @@ export default function Home() {
                     ) : (
                       <View style={[styles.statusBadge, styles.statusCombat]}>
                         <View style={styles.pulseDot} />
-                        <Text style={styles.statusTextCombat}>EN CURSO 💪</Text>
+                        <Text style={styles.statusTextCombat}>EN CURSO <MaterialCommunityIcons name="arm-flex" size={20} color="#ff9d00ff" /> </Text>
                       </View>
                     );
                   })()}
@@ -351,13 +407,13 @@ export default function Home() {
                   <View style={styles.statRow}>
                     <Text style={styles.statLabel}>Pasos Colectivos:</Text>
                     <Text style={styles.statValue}>
-                      👣 {(coopChallenge?.currentSteps || 0).toLocaleString()} / {(coopChallenge?.totalSteps || 100000).toLocaleString()}
+                      <Ionicons name="footsteps" size={20} color="#000000ff" /> {(coopChallenge?.currentSteps || 0).toLocaleString()} / {(coopChallenge?.totalSteps || 100000).toLocaleString()}
                     </Text>
                   </View>
 
                   <View style={styles.statRow}>
                     <Text style={styles.statLabel}>Tu aporte de hoy:</Text>
-                    <Text style={styles.statValueContrib}>👣 {numSteps.toLocaleString()}</Text>
+                    <Text style={styles.statValueContrib}><Ionicons name="footsteps" size={20} color="#000000ff" /> {numSteps.toLocaleString()}</Text>
                   </View>
 
                   <View style={styles.divider} />
@@ -383,7 +439,7 @@ export default function Home() {
         {/* ── PÁGINA 1: Home ──────────────────────────────────────────────────── */}
         <View style={styles.page}>
           <ImageBackground
-            source={require('@/assets/images/Home.png')}
+            source={{ uri: `${BACKEND_URL}/uploads/images/Home.png` }}
             style={styles.container}
             resizeMode="cover"
             imageStyle={styles.backgroundImage}
@@ -394,7 +450,7 @@ export default function Home() {
             </View>
             {/* Contador de pasos */}
             <View style={styles.stepsContainer}>
-              <Text style={styles.stepsText}>Pasos 👣: {numSteps}</Text>
+              <Text style={styles.stepsText}>Pasos <Ionicons name="footsteps" size={20} color="#000000ff" />: {numSteps}</Text>
             </View>
             {/* Avatar */}
             <View style={styles.avatarContainer}>
@@ -544,11 +600,18 @@ export default function Home() {
                       onPress={() => handleSelectPreview(activeCategory, entry.item)}
                     >
                       <View style={styles.itemImageBox}>
-                        <MaterialIcons
-                          name={CATEGORY_ICONS[entry.itemEntity.type] as any}
-                          size={48}
-                          color="#6B5B95"
-                        />
+                        {entry.itemEntity.image == "" ? (
+                          <MaterialIcons
+                            name={CATEGORY_ICONS[entry.itemEntity.type as Category] as any}
+                            size={48}
+                            color="#6B5B95"
+                          />
+                        ) : (
+                          <Image
+                            source={{ uri: `${BACKEND_URL}/${entry.itemEntity.image}` }}
+                            style={styles.itemImage}
+                          />
+                        )}
                       </View>
                       <Text style={styles.itemName} numberOfLines={2}>
                         {entry.item}
@@ -618,6 +681,54 @@ export default function Home() {
           />
         ))}
       </View>
+
+      {/* ── Modal Bonus Diario ───────────────────────────────────────────────── */}
+      <Modal
+        transparent
+        animationType="none"
+        visible={showDailyBonus}
+        onRequestClose={() => setShowDailyBonus(false)}
+      >
+        <Pressable
+          style={styles.bonusOverlay}
+          onPress={() => setShowDailyBonus(false)}
+        >
+          <Animated.View
+            style={[
+              styles.bonusCard,
+              {
+                opacity: bonusAnim,
+                transform: [{ scale: bonusScale }],
+              },
+            ]}
+          >
+            {/* Icono principal */}
+            <View style={styles.bonusIconRing}>
+              <Text style={styles.bonusEmoji}><MaterialCommunityIcons name="gift" size={28} color="#FF6B35" /></Text>
+            </View>
+
+            {/* Textos */}
+            <Text style={styles.bonusTitle}>¡Bonus diario!</Text>
+            <Text style={styles.bonusSubtitle}>Has entrado hoy por primera vez</Text>
+
+            {/* Cantidad */}
+            <View style={styles.bonusAmountBox}>
+              <MaterialIcons name="local-fire-department" size={28} color="#FF6B35" />
+              <Text style={styles.bonusAmount}>+{DAILY_BONUS_AMOUNT} P.E</Text>
+            </View>
+
+            <Text style={styles.bonusHint}>¡Sigue así, campeón! <MaterialCommunityIcons name="arm-flex" size={20} color="#ff9d00ff" /></Text>
+
+            {/* Botón cerrar */}
+            <Pressable
+              style={({ pressed }) => [styles.bonusButton, pressed && { opacity: 0.85 }]}
+              onPress={() => setShowDailyBonus(false)}
+            >
+              <Text style={styles.bonusButtonText}>¡Genial!</Text>
+            </Pressable>
+          </Animated.View>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -1219,4 +1330,103 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14, paddingVertical: 8, marginTop: 12,
   },
   rewardBannerText: { fontSize: 12, fontWeight: '700', color: '#8B6914' },
+
+  // ── Modal Bonus Diario ────────────────────────────────────────────────────────
+  bonusOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  bonusCard: {
+    width: 300,
+    backgroundColor: '#fff',
+    borderRadius: 32,
+    paddingHorizontal: 28,
+    paddingVertical: 36,
+    alignItems: 'center',
+    gap: 12,
+    shadowColor: '#6B5B95',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.35,
+    shadowRadius: 20,
+    elevation: 20,
+    ...Platform.select({ web: { boxShadow: '0px 8px 20px rgba(107,91,149,0.35)' } }),
+  },
+  bonusIconRing: {
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    backgroundColor: '#F5F0FF',
+    borderWidth: 3,
+    borderColor: '#6B5B95',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  bonusEmoji: {
+    fontSize: 44,
+  },
+  bonusTitle: {
+    fontSize: 26,
+    fontWeight: '800',
+    color: '#2D3E50',
+    textAlign: 'center',
+    letterSpacing: 0.3,
+  },
+  bonusSubtitle: {
+    fontSize: 14,
+    color: '#64748B',
+    textAlign: 'center',
+    fontWeight: '500',
+  },
+  bonusAmountBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#FFF7ED',
+    borderRadius: 20,
+    paddingHorizontal: 22,
+    paddingVertical: 12,
+    borderWidth: 2,
+    borderColor: '#FF6B35',
+    marginVertical: 4,
+  },
+  bonusAmount: {
+    fontSize: 30,
+    fontWeight: '900',
+    color: '#FF6B35',
+    letterSpacing: 0.5,
+  },
+  bonusHint: {
+    fontSize: 14,
+    color: '#6B5B95',
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  bonusButton: {
+    marginTop: 8,
+    backgroundColor: '#6B5B95',
+    borderRadius: 20,
+    paddingHorizontal: 48,
+    paddingVertical: 14,
+    alignItems: 'center',
+    shadowColor: '#6B5B95',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 6,
+    ...Platform.select({ web: { boxShadow: '0px 4px 8px rgba(107,91,149,0.4)' } }),
+  },
+  bonusButtonText: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#fff',
+    letterSpacing: 0.5,
+  },
+  itemImage: {
+    width: 100,
+    height: 100,
+    resizeMode: 'contain',
+  },
 });

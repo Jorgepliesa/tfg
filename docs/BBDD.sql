@@ -54,6 +54,7 @@ CREATE TABLE complete (
 
 CREATE TABLE Clinical_Profile (
     id INT,
+    omop_person_id INT UNIQUE,
     age INT,
     biological_sex biological_sex_type,
     height NUMERIC,

@@ -18,6 +18,11 @@ export class OmopSensorController {
         private sessionService: SessionService,
     ) { }
 
+    private async getOmopPersonId(userId: number): Promise<number | null> {
+        const profile = await this.clinicalProfileService.getProfile(userId);
+        return profile?.omopPersonId ?? null;
+    }
+
     @Get('session')
     @ApiQuery({ name: 'start', type: String, description: 'ISO datetime' })
     @ApiQuery({ name: 'end', type: String, description: 'ISO datetime' })
@@ -26,15 +31,9 @@ export class OmopSensorController {
         @Query('start') start: string,
         @Query('end') end: string,
     ) {
-        const profile = await this.clinicalProfileService.getProfile(req.user!.id);
-        if (!profile?.id) {
-            return { error: 'No hay dispositivo wearable vinculado a este usuario' };
-        }
-        return this.omopSensorService.getSessionSensorData(
-            profile.id,
-            new Date(start),
-            new Date(end),
-        );
+        const omopPersonId = await this.getOmopPersonId(req.user!.id);
+        if (!omopPersonId) return { error: 'No hay dispositivo wearable vinculado a este usuario' };
+        return this.omopSensorService.getSessionSensorData(omopPersonId, new Date(start), new Date(end));
     }
 
     @Get('daily')
@@ -43,23 +42,18 @@ export class OmopSensorController {
         @Req() req: Request,
         @Query('days') days?: number,
     ) {
-        const profile = await this.clinicalProfileService.getProfile(req.user!.id);
-        if (!profile?.id) {
-            return [];
-        }
-        return this.omopSensorService.getDailySummaries(
-            profile.id,
-            days ?? 14,
-        );
+        const omopPersonId = await this.getOmopPersonId(req.user!.id);
+        if (!omopPersonId) return [];
+        return this.omopSensorService.getDailySummaries(omopPersonId, days ?? 14);
     }
 
     @Get('today-steps')
     @ApiOperation({ summary: 'Pasos totales de hoy, calculados en tiempo real desde las mediciones OMOP' })
     @ApiResponse({ status: 200, schema: { example: { todaySteps: 4230 } } })
     async getTodaySteps(@Req() req: Request) {
-        const profile = await this.clinicalProfileService.getProfile(req.user!.id);
-        if (!profile?.id) return { todaySteps: 0 };
-        const todaySteps = await this.omopSensorService.getTodaySteps(profile.id);
+        const omopPersonId = await this.getOmopPersonId(req.user!.id);
+        if (!omopPersonId) return { todaySteps: 0 };
+        const todaySteps = await this.omopSensorService.getTodaySteps(omopPersonId);
         return { todaySteps };
     }
 
@@ -67,8 +61,8 @@ export class OmopSensorController {
     @ApiOperation({ summary: 'Resumen de frecuencia cardiaca/SpO2 durante las últimas sesiones de entrenamiento' })
     @ApiQuery({ name: 'limit', required: false, type: Number })
     async getRecentSessionsSummary(@Req() req: Request, @Query('limit') limit?: number) {
-        const profile = await this.clinicalProfileService.getProfile(req.user!.id);
-        if (!profile?.id) return [];
+        const omopPersonId = await this.getOmopPersonId(req.user!.id);
+        if (!omopPersonId) return [];
 
         const sessions = await this.sessionService.getRecentSessions(req.user!.id, limit ?? 10);
 
@@ -76,7 +70,7 @@ export class OmopSensorController {
             sessions.map(async (s) => {
                 const start = new Date(s.date);
                 const end = new Date(start.getTime() + s.duration * 60000);
-                const sensorSummary = await this.omopSensorService.getSessionSummary(profile.id, start, end);
+                const sensorSummary = await this.omopSensorService.getSessionSummary(omopPersonId, start, end);
                 return { date: s.date, routine: s.routine, durationMinutes: s.duration, ...sensorSummary };
             }),
         );

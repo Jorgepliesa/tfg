@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Between, In, Repository } from 'typeorm';
+import { Between, In, MoreThan, Repository } from 'typeorm';
 import { Routine, Difficulty } from '../entities/Routine';
 import { Plan } from '../entities/Plan';
 import { Exercise, ExerciseCategory, ExerciseDifficulty } from '../entities/Exercise';
@@ -12,16 +12,76 @@ import { UserAccount } from '../entities/UserAccount';
 import { ClinicalProfile } from '../entities/ClinicalProfile';
 
 // Orden de dificultad para poder subir/bajar un nivel
-const DIFFICULTY_ORDER = [Difficulty.EASY, Difficulty.MEDIUM, Difficulty.HARD];
+export const DIFFICULTY_ORDER = [Difficulty.EASY, Difficulty.MEDIUM, Difficulty.HARD];
 
 // Pesos del scoring — fáciles de ajustar sin tocar la lógica
-const WEIGHTS = {
+export const SCORING_WEIGHTS = {
   DIFFICULTY_MATCH: 4,      // acierta exactamente con la dificultad objetivo
   DIFFICULTY_ADJACENT: 2,   // está a un nivel de la objetivo (mejor que un salto brusco)
   CATEGORY_ROTATION: 2,     // categoría distinta a la última sesión
   EQUIPMENT_MATCH: 1,       // coincide con la preferencia de material (tie-breaker si el filtro cayó al fallback)
   RECENT_PENALTY: -3,       // penalización por cada vez que aparece en las últimas sesiones
 };
+
+/** Desglose de puntuación de una rutina candidata (para trazabilidad y tests). */
+export interface ScoreBreakdown {
+  difficultyPoints: number;       // DIFFICULTY_MATCH o DIFFICULTY_ADJACENT o 0
+  categoryRotationPoints: number; // CATEGORY_ROTATION o 0
+  equipmentPoints: number;        // EQUIPMENT_MATCH o 0
+  recentPenalty: number;          // RECENT_PENALTY * veces_repetida (≤ 0)
+  total: number;                  // suma de todos los campos anteriores
+}
+
+/** Candidato mínimo necesario para calcular el score (sin acceso a BD). */
+export interface ScoringCandidate {
+  name: string;
+  category: string;
+  difficulty: string;
+  usesEquipment: boolean;
+}
+
+/** Contexto de sesión necesario para el scoring. */
+export interface ScoringContext {
+  targetDifficulty: Difficulty;
+  lastCategory: string | null;
+  hasEquipment: boolean;
+  usedEquipmentFallback: boolean;
+  recentRoutineCounts: Map<string, number>;
+}
+
+/**
+ * Función pura de scoring: calcula el desglose de puntuación de una rutina candidata
+ * dado un contexto de sesión. No accede a la base de datos.
+ */
+export function scoreRoutine(
+  candidate: ScoringCandidate,
+  context: ScoringContext,
+): ScoreBreakdown {
+  const diffIndex = DIFFICULTY_ORDER.indexOf(candidate.difficulty as unknown as Difficulty);
+  const targetIndex = DIFFICULTY_ORDER.indexOf(context.targetDifficulty);
+  const diffDistance = Math.abs(diffIndex - targetIndex);
+
+  let difficultyPoints = 0;
+  if (diffDistance === 0) difficultyPoints = SCORING_WEIGHTS.DIFFICULTY_MATCH;
+  else if (diffDistance === 1) difficultyPoints = SCORING_WEIGHTS.DIFFICULTY_ADJACENT;
+
+  const categoryRotationPoints =
+    context.lastCategory && candidate.category !== context.lastCategory
+      ? SCORING_WEIGHTS.CATEGORY_ROTATION
+      : 0;
+
+  const equipmentPoints =
+    !context.usedEquipmentFallback && candidate.usesEquipment === context.hasEquipment
+      ? SCORING_WEIGHTS.EQUIPMENT_MATCH
+      : 0;
+
+  const timesRecent = context.recentRoutineCounts.get(candidate.name) ?? 0;
+  const recentPenalty = SCORING_WEIGHTS.RECENT_PENALTY * timesRecent;
+
+  const total = difficultyPoints + categoryRotationPoints + equipmentPoints + recentPenalty;
+
+  return { difficultyPoints, categoryRotationPoints, equipmentPoints, recentPenalty, total };
+}
 
 @Injectable()
 export class RoutineService {
@@ -50,9 +110,18 @@ export class RoutineService {
    * marcando cuáles están contraindicados para el usuario actual (solo aviso, no bloqueo).
    */
   async getExerciseCatalog(userId: number): Promise<{
-    name: string; description: string; category: string; difficulty: string; isContraindicated: boolean;
+    name: string;
+    description: string;
+    category: string;
+    difficulty: string;
+    isContraindicated: boolean;
+    equipment: string[];
+    measurementParameters: string[];
+    contraindications: string[];
   }[]> {
-    const exercises = await this.exerciseRepository.find({ relations: ['contraindications'] });
+    const exercises = await this.exerciseRepository.find({
+      relations: ['contraindications', 'equipment', 'measurementParameters'],
+    });
     const contraindicationNames = await this.getUserContraindications(userId);
 
     return exercises.map((ex) => ({
@@ -61,6 +130,9 @@ export class RoutineService {
       category: ex.category,
       difficulty: ex.difficulty,
       isContraindicated: (ex.contraindications || []).some((c) => contraindicationNames.has(c.name)),
+      equipment: (ex.equipment || []).map((eq) => eq.name),
+      measurementParameters: (ex.measurementParameters || []).map((p) => p.name),
+      contraindications: (ex.contraindications || []).map((c) => c.name),
     }));
   }
 
@@ -97,7 +169,12 @@ export class RoutineService {
     category: string;
     difficulty: string;
     isPersonal: boolean;
-    exercises: (ExerciseInRoutineDto & { isContraindicated: boolean })[];
+    exercises: (ExerciseInRoutineDto & {
+      isContraindicated: boolean;
+      equipment: string[];
+      measurementParameters: string[];
+      contraindications: string[];
+    })[];
   }> {
     const routine = await this.routineRepository.findOne({ where: { name: routineName } });
     if (!routine) throw new NotFoundException(`Routine "${routineName}" not found`);
@@ -117,6 +194,44 @@ export class RoutineService {
       ])
       .getRawMany();
 
+    const exerciseNames = exercisesRaw.map((e) => e.exerciseName);
+    let equipmentByExercise = new Map<string, string[]>();
+    let measurementByExercise = new Map<string, string[]>();
+    let contraindicationsByExercise = new Map<string, string[]>();
+
+    if (exerciseNames.length > 0) {
+      const equipmentRows = await this.exerciseRepository.createQueryBuilder('exercise')
+        .innerJoin('exercise.equipment', 'equipment')
+        .where('exercise.name IN (:...names)', { names: exerciseNames })
+        .select(['exercise.name AS "exerciseName"', 'equipment.name AS "name"'])
+        .getRawMany();
+
+      const measurementRows = await this.exerciseRepository.createQueryBuilder('exercise')
+        .innerJoin('exercise.measurementParameters', 'param')
+        .where('exercise.name IN (:...names)', { names: exerciseNames })
+        .select(['exercise.name AS "exerciseName"', 'param.name AS "name"'])
+        .getRawMany();
+
+      const contraindicationRows = await this.exerciseRepository.createQueryBuilder('exercise')
+        .innerJoin('exercise.contraindications', 'contraindication')
+        .where('exercise.name IN (:...names)', { names: exerciseNames })
+        .select(['exercise.name AS "exerciseName"', 'contraindication.name AS "name"'])
+        .getRawMany();
+
+      const groupByExercise = (rows: { exerciseName: string; name: string }[]): Map<string, string[]> => {
+        const map = new Map<string, string[]>();
+        for (const row of rows) {
+          if (!map.has(row.exerciseName)) map.set(row.exerciseName, []);
+          map.get(row.exerciseName)!.push(row.name);
+        }
+        return map;
+      };
+
+      equipmentByExercise = groupByExercise(equipmentRows);
+      measurementByExercise = groupByExercise(measurementRows);
+      contraindicationsByExercise = groupByExercise(contraindicationRows);
+    }
+
     const contraindicationNames = await this.getUserContraindications(userId);
     let restrictedSet = new Set<string>();
     if (contraindicationNames.size > 0) {
@@ -134,7 +249,13 @@ export class RoutineService {
       category: routine.category,
       difficulty: routine.difficulty,
       isPersonal: routine.assignedUserId === userId,
-      exercises: exercisesRaw.map((e) => ({ ...e, isContraindicated: restrictedSet.has(e.exerciseName) })),
+      exercises: exercisesRaw.map((e) => ({
+        ...e,
+        isContraindicated: restrictedSet.has(e.exerciseName),
+        equipment: equipmentByExercise.get(e.exerciseName) ?? [],
+        measurementParameters: measurementByExercise.get(e.exerciseName) ?? [],
+        contraindications: contraindicationsByExercise.get(e.exerciseName) ?? [],
+      })),
     };
   }
 
@@ -328,13 +449,13 @@ export class RoutineService {
   }
 
   /**
-   * Get detailed routine info (for frontend to show all exercises)
-   * Excluye las contraindicaciones del usuario.
-   * TODO(futuro): cuando se integren datos monitorizados (frecuencia cardiaca,
-   * SpO2 vía OmopSensorService), este filtro también podría excluir/ajustar
-   * ejercicios de alta intensidad en tiempo real según lecturas recientes,
-   * no solo según limitaciones estáticas del perfil clínico.
-   */
+ * Get detailed routine info (for frontend to show all exercises)
+ * Excluye las contraindicaciones del usuario.
+ * TODO(futuro): cuando se integren datos monitorizados (frecuencia cardiaca,
+ * SpO2 vía OmopSensorService), este filtro también podría excluir/ajustar
+ * ejercicios de alta intensidad en tiempo real según lecturas recientes,
+ * no solo según limitaciones estáticas del perfil clínico.
+ */
   async getRoutineDetails(routineName: string, userId?: number): Promise<ExerciseInRoutineDto[]> {
     // Usamos getRawMany para obtener un array plano directo desde SQL sin hidratar entidades pesadas
     const exercisesRaw = await this.planRepository.createQueryBuilder('plan')
@@ -369,8 +490,9 @@ export class RoutineService {
       throw new BadRequestException(`Routine "${routineName}" has no exercises`);
     }
 
-    // ── Adjuntar vídeo demostrativo (primer audiovisual asociado a cada ejercicio) ──
     const exerciseNames = exercisesRaw.map((e) => e.exerciseName);
+
+    // ── Adjuntar vídeo demostrativo (primer audiovisual asociado a cada ejercicio) ──
     const videoRows = await this.exerciseRepository.createQueryBuilder('exercise')
       .innerJoin('exercise.audiovisuals', 'av')
       .where('exercise.name IN (:...names)', { names: exerciseNames })
@@ -381,15 +503,43 @@ export class RoutineService {
     for (const row of videoRows) {
       if (!videoByExercise.has(row.exerciseName)) videoByExercise.set(row.exerciseName, row.url);
     }
-    const withVideo = exercisesRaw.map((e) => ({
+
+    // ── Adjuntar material necesario, parámetros a medir ──
+    const groupByExercise = (rows: { exerciseName: string; name: string }[]): Map<string, string[]> => {
+      const map = new Map<string, string[]>();
+      for (const row of rows) {
+        if (!map.has(row.exerciseName)) map.set(row.exerciseName, []);
+        map.get(row.exerciseName)!.push(row.name);
+      }
+      return map;
+    };
+
+    const equipmentRows = await this.exerciseRepository.createQueryBuilder('exercise')
+      .innerJoin('exercise.equipment', 'equipment')
+      .where('exercise.name IN (:...names)', { names: exerciseNames })
+      .select(['exercise.name AS "exerciseName"', 'equipment.name AS "name"'])
+      .getRawMany();
+
+    const measurementRows = await this.exerciseRepository.createQueryBuilder('exercise')
+      .innerJoin('exercise.measurementParameters', 'param')
+      .where('exercise.name IN (:...names)', { names: exerciseNames })
+      .select(['exercise.name AS "exerciseName"', 'param.name AS "name"'])
+      .getRawMany();
+
+    const equipmentByExercise = groupByExercise(equipmentRows);
+    const measurementByExercise = groupByExercise(measurementRows);
+
+    const withExtras = exercisesRaw.map((e) => ({
       ...e,
       videoUrl: videoByExercise.get(e.exerciseName) ?? null,
+      equipment: equipmentByExercise.get(e.exerciseName) ?? [],
+      measurementParameters: measurementByExercise.get(e.exerciseName) ?? [],
     }));
 
-    if (!userId) return withVideo;
+    if (!userId) return withExtras;
 
     const contraindicationNames = await this.getUserContraindications(userId);
-    if (contraindicationNames.size === 0) return withVideo;
+    if (contraindicationNames.size === 0) return withExtras;
 
     const restrictedRows = await this.exerciseRepository
       .createQueryBuilder('exercise')
@@ -399,7 +549,7 @@ export class RoutineService {
       .getRawMany();
 
     const restrictedSet = new Set(restrictedRows.map((r) => r.name));
-    const filtered = withVideo.filter((e) => !restrictedSet.has(e.exerciseName));
+    const filtered = withExtras.filter((e) => !restrictedSet.has(e.exerciseName));
 
     if (filtered.length === 0) {
       throw new BadRequestException(
@@ -452,7 +602,7 @@ export class RoutineService {
 
     // 2) Historial reciente
     const recentSessions = await this.sessionRepository.find({
-      where: { userId },
+      where: { userId, duration: MoreThan(0) },
       order: { date: 'DESC' },
       take: 5,
     });
@@ -471,35 +621,33 @@ export class RoutineService {
     // 3) Calcular dificultad objetivo a partir de la última sesión (dolor/fatiga + ratio de compleción)
     const targetDifficulty = await this.computeTargetDifficulty(userId, lastSession, lastRoutine);
 
-    // 4) Scoring
+    // 4) Scoring — delega en la función pura exportada scoreRoutine
+    const scoringContext: ScoringContext = {
+      targetDifficulty,
+      lastCategory,
+      hasEquipment,
+      usedEquipmentFallback: usedFallback,
+      recentRoutineCounts,
+    };
+
     let bestScore = -Infinity;
     let bestCandidates: typeof candidates = [];
 
     for (const c of candidates) {
-      let score = 0;
+      const breakdown = scoreRoutine(
+        {
+          name: c.routine.name,
+          category: c.routine.category,
+          difficulty: c.routine.difficulty,
+          usesEquipment: c.usesEquipment,
+        },
+        scoringContext,
+      );
 
-      const diffIndex = DIFFICULTY_ORDER.indexOf(c.routine.difficulty as unknown as Difficulty);
-      const targetIndex = DIFFICULTY_ORDER.indexOf(targetDifficulty);
-      const diffDistance = Math.abs(diffIndex - targetIndex);
-
-      if (diffDistance === 0) score += WEIGHTS.DIFFICULTY_MATCH;
-      else if (diffDistance === 1) score += WEIGHTS.DIFFICULTY_ADJACENT;
-
-      if (lastCategory && c.routine.category !== lastCategory) {
-        score += WEIGHTS.CATEGORY_ROTATION;
-      }
-
-      if (!usedFallback && c.usesEquipment === hasEquipment) {
-        score += WEIGHTS.EQUIPMENT_MATCH;
-      }
-
-      const timesRecent = recentRoutineCounts.get(c.routine.name) ?? 0;
-      score += WEIGHTS.RECENT_PENALTY * timesRecent;
-
-      if (score > bestScore) {
-        bestScore = score;
+      if (breakdown.total > bestScore) {
+        bestScore = breakdown.total;
         bestCandidates = [c];
-      } else if (score === bestScore) {
+      } else if (breakdown.total === bestScore) {
         bestCandidates.push(c);
       }
     }

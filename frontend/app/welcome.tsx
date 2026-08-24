@@ -1,8 +1,10 @@
 import { router } from "expo-router";
 import { useState } from "react";
 import { ImageBackground, Modal, Pressable, View, Text, StyleSheet } from "react-native";
+import { Image } from "expo-image";
 import { MaterialIcons } from '@expo/vector-icons';
 import { ParentalGateModal } from "./parental-gate";
+import { BACKEND_URL } from "@/services/api";
 
 export default function WelcomeScreen() {
     const [showParentalGate, setShowParentalGate] = useState(false);
@@ -13,13 +15,16 @@ export default function WelcomeScreen() {
 
     return (
         <ImageBackground
-            source={require('@/assets/images/Welcome.png')}
+            source={{ uri: `${BACKEND_URL}/uploads/images/Welcome.png` }}
             style={styles.container}
             resizeMode="cover"
         >
             {/* Logo y titulo */}
             <View style={styles.logoContainer}>
-                <Text style={styles.logo}>🏃‍♂️</Text>
+                <Image
+                    source={{ uri: `${BACKEND_URL}/uploads/images/Logo.svg` }}
+                    style={styles.logo}
+                />
                 <Text style={styles.title}>Health Game</Text>
                 <Text style={styles.subtitle}>¡Muévete y diviértete!</Text>
             </View>
@@ -73,7 +78,9 @@ const styles = StyleSheet.create({
         marginBottom: 60,
     },
     logo: {
-        fontSize: 80,
+        width: 100,
+        height: 100,
+        resizeMode: 'contain',
         marginBottom: 16,
     },
     title: {

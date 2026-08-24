@@ -49,7 +49,7 @@ export class AuthService {
             refreshToken,
             user: {
                 id: user.id,
-                streak: user.streak,
+                streak: undefined,
                 avatar: user.avatarEntity ? {
                     id: user.avatarEntity.id,
                     fp: user.avatarEntity.fp,
