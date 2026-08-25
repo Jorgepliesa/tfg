@@ -235,7 +235,7 @@ async function bootstrap() {
                         date: midnight(dayIndex),
                         userId,
                         numSteps,
-                        isReached: numSteps >= 5000,
+                        isReached: numSteps >= 6000,
                     }),
                 );
 
