@@ -4,6 +4,8 @@
     "glob": "^13.0.6",
     "pg": "^8.19.0",
     "typeorm": "^0.3.28"
+  },
+  "devDependencies": {
+    "erdia": "^3.7.1"
   }
 }
-

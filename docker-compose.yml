@@ -11,6 +11,8 @@ services: # Aplicaciones a ejecutar:
       - "5432:5432" # Conecta el puerto del contenedor con el de tu PC
     volumes:
       - postgres_data:/var/lib/postgresql/data # Para que los datos no se borren al apagar
+      - ./initDB:/docker-entrypoint-initdb.d # Para que se ejecute el script al iniciar
+      - ./docs:/docs # Para poder acceder a los documentos desde el PC
 
 volumes: # La memoria
   postgres_data: # Zona de memoria persistente en disco donde se guardan los datos llamado postgres_data

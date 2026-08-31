@@ -2,6 +2,19 @@ import { NestFactory } from '@nestjs/core';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
+import * as os from 'os';
+
+function getLocalIp(): string {
+  const interfaces = os.networkInterfaces();
+  for (const name of Object.keys(interfaces)) {
+    for (const net of interfaces[name] || []) {
+      if (net.family === 'IPv4' && !net.internal) {
+        return net.address;
+      }
+    }
+  }
+  return 'localhost';
+}
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -43,9 +56,11 @@ async function bootstrap() {
   const port = process.env.PORT ?? 3000;
   await app.listen(port, '0.0.0.0'); // Escuchar en todas las interfaces de red
 
+  const localIp = getLocalIp();
+
   console.log(`Server running on:`);
   console.log(`   - Local:   http://localhost:${port}`);
-  console.log(`   - Network: http://192.168.0.27:${port}`);
-  console.log(`   - Swagger: http://192.168.0.27:${port}/api`);
+  console.log(`   - Network: http://${localIp}:${port}`);
+  console.log(`   - Swagger: http://${localIp}:${port}/api`);
 }
 bootstrap();

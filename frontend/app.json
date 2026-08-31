@@ -9,9 +9,14 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.a821011steam.HealthGame",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
+      "usesCleartextTraffic": true,
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png"
@@ -53,6 +58,12 @@
       "eas": {
         "projectId": "6a4f55d3-63b2-43e5-93cd-005ac0dddffe"
       }
+    },
+    "updates": {
+      "url": "https://u.expo.dev/6a4f55d3-63b2-43e5-93cd-005ac0dddffe"
+    },
+    "runtimeVersion": {
+      "policy": "sdkVersion"
     }
   }
 }
