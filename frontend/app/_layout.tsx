@@ -3,11 +3,30 @@ import { Stack, useRouter, useSegments } from "expo-router";
 import { useEffect, useState } from "react";
 import { SessionProvider } from "@/context/SessionContext";
 import '../i18n'; // <-- Configuración de internacionalización i18next
+import * as Updates from 'expo-updates';
 
 export default function RootLayout() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const segments = useSegments();
   const router = useRouter();
+
+  useEffect(() => {
+    async function checkForUpdates() {
+      if (__DEV__) return; // no hacer esto en desarrollo local
+
+      try {
+        const update = await Updates.checkForUpdateAsync();
+        if (update.isAvailable) {
+          await Updates.fetchUpdateAsync();
+          await Updates.reloadAsync(); // recarga la app YA con el nuevo bundle
+        }
+      } catch (e) {
+        console.log('Error buscando updates:', e);
+      }
+    }
+
+    checkForUpdates();
+  }, []);
 
   useEffect(() => {
     checkAuth();

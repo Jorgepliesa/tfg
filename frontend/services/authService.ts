@@ -44,7 +44,10 @@ export const authService = {
     try {
       const response = await fetch(`${API_URL}/auth/login`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
         body: JSON.stringify({ id, password }),
       });
 
@@ -57,19 +60,19 @@ export const authService = {
       }
 
       const data: LoginResponse = await response.json();
-      console.log('✅ Login response received:', { 
+      console.log('✅ Login response received:', {
         userId: data.user.id,
         hasAccessToken: !!data.accessToken,
-        hasRefreshToken: !!data.refreshToken 
+        hasRefreshToken: !!data.refreshToken
       });
 
       // Guardar tokens de forma segura
       await storage.setItem('accessToken', data.accessToken);
       await storage.setItem('refreshToken', data.refreshToken);
       await storage.setItem('userId', data.user.id.toString());
-      
+
       console.log(' Tokens saved successfully');
-      
+
       // Verificar que se guardaron
       const savedToken = await storage.getItem('accessToken');
       console.log('✅ Token verification:', { tokenSaved: !!savedToken });
@@ -105,16 +108,16 @@ export const authService = {
     try {
       const response = await fetch(`${API_URL}/auth/refresh`, {
         method: 'POST',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ refreshToken }),
       });
 
       if (!response.ok) {
-          // Refresh token inválido -> forzar re-login
-          await this.logout();
-          throw new Error('Failed to refresh access token');
+        // Refresh token inválido -> forzar re-login
+        await this.logout();
+        throw new Error('Failed to refresh access token');
       }
 
       const data = await response.json();
