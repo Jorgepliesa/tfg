@@ -15,8 +15,11 @@ describe('AppController', () => {
   });
 
   describe('root', () => {
-    it('should return "Hello World!"', () => {
-      expect(appController.getHello()).toBe('Hello World!');
+    it('devuelve el estado de salud de la API con mensaje y versión', () => {
+      const result = appController.getHello();
+      expect(result).toHaveProperty('message');
+      expect(result).toHaveProperty('version', '1.0.0');
+      expect(result).toHaveProperty('timestamp');
     });
   });
 });

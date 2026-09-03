@@ -571,7 +571,7 @@ export class RoutineService {
   async recommendRoutine(
     userId: number,
     hasEquipment: boolean,
-  ): Promise<{ routineName: string; category: string; difficulty: string }> {
+  ): Promise<{ routineName: string; category: string; difficulty: string; scoreBreakdown: ScoreBreakdown, allScores: { routineName: string; category: string; difficulty: string; scoreBreakdown: ScoreBreakdown }[] }> {
     const contraindications = await this.getUserContraindications(userId);
 
     const routines = await this.routineRepository.find({
@@ -630,10 +630,7 @@ export class RoutineService {
       recentRoutineCounts,
     };
 
-    let bestScore = -Infinity;
-    let bestCandidates: typeof candidates = [];
-
-    for (const c of candidates) {
+    const scoredCandidates = candidates.map(c => {
       const breakdown = scoreRoutine(
         {
           name: c.routine.name,
@@ -643,22 +640,39 @@ export class RoutineService {
         },
         scoringContext,
       );
+      return { routine: c, breakdown };
+    });
 
-      if (breakdown.total > bestScore) {
-        bestScore = breakdown.total;
-        bestCandidates = [c];
-      } else if (breakdown.total === bestScore) {
-        bestCandidates.push(c);
+    let bestScore = -Infinity;
+    let bestCandidates: typeof scoredCandidates = [];
+
+    for (const sc of scoredCandidates) {
+      if (sc.breakdown.total > bestScore) {
+        bestScore = sc.breakdown.total;
+        bestCandidates = [sc];
+      } else if (sc.breakdown.total === bestScore) {
+        bestCandidates.push(sc);
       }
     }
 
     // Empate -> elegir al azar entre los mejores para no ser siempre determinista
-    const chosen = bestCandidates[Math.floor(Math.random() * bestCandidates.length)].routine;
+    const chosenCandidate = bestCandidates[Math.floor(Math.random() * bestCandidates.length)];
+    const chosenRoutine = chosenCandidate.routine.routine;
+    const chosenBreakdown = chosenCandidate.breakdown;
+
+    const allScores = scoredCandidates.map(sc => ({
+      routineName: sc.routine.routine.name,
+      category: sc.routine.routine.category,
+      difficulty: sc.routine.routine.difficulty,
+      scoreBreakdown: sc.breakdown,
+    }));
 
     return {
-      routineName: chosen.name,
-      category: chosen.category,
-      difficulty: chosen.difficulty,
+      routineName: chosenRoutine.name,
+      category: chosenRoutine.category,
+      difficulty: chosenRoutine.difficulty,
+      scoreBreakdown: chosenBreakdown,
+      allScores,
     };
   }
 

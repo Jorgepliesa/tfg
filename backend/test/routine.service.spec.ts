@@ -76,6 +76,8 @@ function logBreakdown(label: string, breakdown: ScoreBreakdown): void {
 
 describe('scoreRoutine – componente dificultad', () => {
     it('exact match (EASY→EASY) → +DIFFICULTY_MATCH (4 pts)', () => {
+        // Con hasEquipment=false y usesEquipment=false (por defecto) también suma EQUIPMENT_MATCH (+1)
+        // por lo que el total real es DIFFICULTY_MATCH + EQUIPMENT_MATCH = 4 + 1 = 5
         const breakdown = scoreRoutine(
             makeCandidate({ difficulty: Difficulty.EASY }),
             makeContext({ targetDifficulty: Difficulty.EASY }),
@@ -83,7 +85,7 @@ describe('scoreRoutine – componente dificultad', () => {
         logBreakdown('dificultad exact match', breakdown);
 
         expect(breakdown.difficultyPoints).toBe(SCORING_WEIGHTS.DIFFICULTY_MATCH);
-        expect(breakdown.total).toBe(SCORING_WEIGHTS.DIFFICULTY_MATCH);
+        expect(breakdown.total).toBe(SCORING_WEIGHTS.DIFFICULTY_MATCH + SCORING_WEIGHTS.EQUIPMENT_MATCH);
     });
 
     it('adjacent (MEDIUM→EASY, distancia 1) → +DIFFICULTY_ADJACENT (2 pts)', () => {
@@ -185,7 +187,9 @@ describe('scoreRoutine – componente penalización reciente', () => {
         );
         logBreakdown('sin penalización reciente', breakdown);
 
-        expect(breakdown.recentPenalty).toBe(0);
+        // RECENT_PENALTY * 0 da -0 en JS; usamos Object.is(val, -0) para distinguir,
+        // pero para el dominio −0 y 0 son equivalentes → comparamos con ===
+        expect(breakdown.recentPenalty === 0).toBe(true);
     });
 
     it('aparece 1 vez en recientes → RECENT_PENALTY × 1 (−3 pts)', () => {
@@ -215,7 +219,7 @@ describe('scoreRoutine – componente penalización reciente', () => {
         );
         logBreakdown('nombre distinto en recientes', breakdown);
 
-        expect(breakdown.recentPenalty).toBe(0);
+        expect(breakdown.recentPenalty === 0).toBe(true);
     });
 });
 
@@ -240,7 +244,7 @@ describe('scoreRoutine – trazabilidad total (caso complejo)', () => {
         expect(breakdown.difficultyPoints).toBe(SCORING_WEIGHTS.DIFFICULTY_ADJACENT);    // 2
         expect(breakdown.categoryRotationPoints).toBe(SCORING_WEIGHTS.CATEGORY_ROTATION); // 2
         expect(breakdown.equipmentPoints).toBe(SCORING_WEIGHTS.EQUIPMENT_MATCH);          // 1
-        expect(breakdown.recentPenalty).toBe(0);                                           // 0
+        expect(breakdown.recentPenalty === 0).toBe(true);                                  // 0 (−0 en JS)
         expect(breakdown.total).toBe(5);
     });
 
@@ -540,12 +544,17 @@ describe('recommendRoutine – computeTargetDifficulty (ajuste de dificultad)', 
         expect(result.routineName).toBe('R Medium');
     });
 
-    it('valores normales (dolor 3, fatiga 3, compleción 75%) → mantiene dificultad actual', async () => {
+    it('valores normales (dolor 3, fatiga 3, compleción 75%) → target MEDIUM, R Easy gana por penalización a R Medium', async () => {
+        // Con pain=3 y fatigue=3, el target es MEDIUM (no sube ni baja).
+        // La única sesión pasada es R Medium (duration=30 > 0) → cuenta como reciente.
+        // R Medium: match=4, equipo=1, penalización×1=-3 → total=2
+        // R Easy:   adjacent=2, equipo=1, sin penalización  → total=3
+        // → R Easy gana por la penalización de repetición
         const routines = [
             makeRoutine({ name: 'R Easy', difficulty: Difficulty.EASY, category: Category.AEROBIC }),
             makeRoutine({ name: 'R Medium', difficulty: Difficulty.MEDIUM, category: Category.AEROBIC }),
         ];
-        const lastSession = makeSession({ date: SESSION_DATE, routine: 'R Medium' });
+        const lastSession = makeSession({ date: SESSION_DATE, routine: 'R Medium', duration: 30 });
         const wellnessTest = makeWellnessTest({ pain: 3, fatigue: 3 });
 
         const plan = { routine: 'R Medium', exercise: 'Zancadas', numReps: 12, numSeries: 3 } as Plan; // target=36
@@ -560,9 +569,9 @@ describe('recommendRoutine – computeTargetDifficulty (ajuste de dificultad)', 
         });
 
         const result = await service.recommendRoutine(1, false);
-        console.log('\n➡️ valores normales, mantiene dificultad:', result);
-        expect(result.difficulty).toBe(Difficulty.MEDIUM);
-        expect(result.routineName).toBe('R Medium');
+        console.log('\n➡️ valores normales, la penalización de repetición decide:', result);
+        // La sesión reciente penaliza R Medium → R Easy es la recomendada
+        expect(result.routineName).toBe('R Easy');
     });
 
     it('no puede bajar de EASY (ya está en el nivel mínimo)', async () => {

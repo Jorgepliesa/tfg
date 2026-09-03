@@ -18,6 +18,7 @@ export const routineService = {
     try {
       const response = await api.get('/routine/recommend', { params: { hasEquipment } });
       if (!response.data) throw new Error(`HTTP error! status: ${response.status}`);
+      console.log("response.data", response.data);
       return response.data;
     } catch (error) {
       console.error('Error recommending routine:', error);

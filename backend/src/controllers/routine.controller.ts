@@ -61,13 +61,50 @@ export class RoutineController {
     status: 200,
     description: 'Rutina recomendada',
     schema: {
-      example: { routineName: 'Fuerza Básica', category: 'strength', difficulty: 'easy' },
+      example: { 
+        routineName: 'Fuerza Básica', 
+        category: 'strength', 
+        difficulty: 'easy',
+        scoreBreakdown: {
+          difficultyPoints: 4,
+          categoryRotationPoints: 2,
+          equipmentPoints: 1,
+          recentPenalty: 0,
+          total: 7
+        },
+        allScores: [
+          {
+            routineName: 'Fuerza Básica', 
+            category: 'strength', 
+            difficulty: 'easy',
+            scoreBreakdown: {
+              difficultyPoints: 4,
+              categoryRotationPoints: 2,
+              equipmentPoints: 1,
+              recentPenalty: 0,
+              total: 7
+            }
+          },
+          {
+            routineName: 'Cardio Intenso', 
+            category: 'aerobic', 
+            difficulty: 'hard',
+            scoreBreakdown: {
+              difficultyPoints: 0,
+              categoryRotationPoints: 0,
+              equipmentPoints: 0,
+              recentPenalty: -3,
+              total: -3
+            }
+          }
+        ]
+      },
     },
   })
   async recommendRoutine(
     @Req() req: Request,
     @Query('hasEquipment') hasEquipment: string,
-  ): Promise<{ routineName: string; category: string; difficulty: string }> {
+  ) {
     const hasEquipmentBool = hasEquipment === 'true' || hasEquipment === '1';
     return this.routineService.recommendRoutine(req.user!.id, hasEquipmentBool);
   }
