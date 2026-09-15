@@ -1,9 +1,10 @@
 import { useRouter } from 'expo-router';
 import {
     View, Text, StyleSheet, Pressable, ScrollView,
-    ActivityIndicator, Alert, Animated, Dimensions,
+    ActivityIndicator, Animated, Dimensions,
     Modal, Platform,
 } from 'react-native';
+import { appAlert } from '@/components/AppAlert';
 import { Image } from 'expo-image';
 import { MaterialIcons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -257,7 +258,7 @@ export default function Memorials() {
             const data = await memorialService.getMemorials();
             setMemorials(data);
         } catch (error) {
-            Alert.alert('Error', 'No se pudo cargar el álbum');
+            appAlert('Error', 'No se pudo cargar el álbum');
         } finally {
             setLoading(false);
         }

@@ -586,12 +586,19 @@ export class RoutineService {
       throw new NotFoundException('No routines available for this user');
     }
 
-    const withUsage = routines.map((r) => ({
-      routine: r,
-      usesEquipment: (r.plans || []).some(
-        (p) => p.exerciseEntity?.equipment && p.exerciseEntity.equipment.length > 0,
-      ),
-    }));
+    const withUsage = visibleRoutines
+      // Excluir rutinas sin ejercicios asignados: no tiene sentido recomendarlas
+      .filter((r) => (r.plans || []).length > 0)
+      .map((r) => ({
+        routine: r,
+        usesEquipment: (r.plans || []).some(
+          (p) => p.exerciseEntity?.equipment && p.exerciseEntity.equipment.length > 0,
+        ),
+      }));
+
+    if (withUsage.length === 0) {
+      throw new NotFoundException('No routines with exercises available for this user');
+    }
 
     // 1) Filtro duro por material (con fallback a todas si no hay coincidencias)
     let candidates = withUsage.filter((r) => r.usesEquipment === hasEquipment);

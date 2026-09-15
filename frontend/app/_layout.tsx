@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { SessionProvider } from "@/context/SessionContext";
 import '../i18n'; // <-- Configuración de internacionalización i18next
 import * as Updates from 'expo-updates';
+import { AppAlertHost } from "@/components/AppAlert";
 
 export default function RootLayout() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
@@ -63,6 +64,7 @@ export default function RootLayout() {
 
   return (
     <SessionProvider>
+      <AppAlertHost />
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="login" />
         <Stack.Screen name="welcome" />

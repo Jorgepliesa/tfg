@@ -1,12 +1,13 @@
 import { useRouter } from 'expo-router';
 import {
     View, Text, StyleSheet, Pressable, ScrollView,
-    ActivityIndicator, Alert, Modal, TextInput,
+    ActivityIndicator, Modal, TextInput,
     Dimensions, Platform,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { useFocusEffect } from 'expo-router';
 import { clinicalProfileService } from '@/services/clinicalProfileService';
 import { exportDashboardPDF } from '@/services/pdfExportService';
 import api from '@/services/api';
@@ -14,6 +15,7 @@ import { routineService } from '@/services/routineService';
 import { omopSensorService } from '@/services/omopSensorService';
 import { MiniLineChart } from '@/components/MiniLineChart';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
+import { appAlert } from '@/components/AppAlert';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CONTENT_WIDTH = Math.min(SCREEN_WIDTH, 480); // cap en tablet
@@ -91,7 +93,7 @@ const WELLNESS_COLOR = (val: number) => {
     return '#E74C3C';
 };
 
-const WELLNESS_ARROW = (val: number) => val <= 2.5 ? '↓ mejora' : val <= 3.5 ? '→ estable' : '↑ atención';
+const WELLNESS_ARROW = (val: number) => val <= 2.5 ? '↓ atención' : val <= 3.5 ? '→ estable' : '↑ mejora';
 
 
 // ─── subcomponentes ──────────────────────────────────────────────────────────
@@ -286,27 +288,40 @@ function DateField({
     return (
         <View style={styles.formField}>
             <Text style={styles.formLabel}>{label}</Text>
-            <Pressable style={styles.dateTrigger} onPress={() => setShowPicker(true)}>
-                <MaterialIcons name="calendar-today" size={18} color="#6B5B95" />
-                <Text style={value ? styles.dateTriggerText : styles.dropdownPlaceholder}>
-                    {value ? formatDisplayDate(value) : 'Seleccionar fecha'}
-                </Text>
-            </Pressable>
-
-            {showPicker && (
-                <DateTimePicker
-                    value={dateValue}
-                    mode="date"
-                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                    maximumDate={maximumDate}
-                    onChange={handleChange}
+            {Platform.OS === 'web' ? (
+                <TextInput
+                    style={styles.formInput}
+                    value={value}
+                    onChangeText={onChange}
+                    placeholder="YYYY-MM-DD"
+                    placeholderTextColor="#aaa"
+                    {...({ type: 'date', max: maximumDate ? maximumDate.toISOString().split('T')[0] : undefined } as any)}
                 />
-            )}
+            ) : (
+                <>
+                    <Pressable style={styles.dateTrigger} onPress={() => setShowPicker(true)}>
+                        <MaterialIcons name="calendar-today" size={18} color="#6B5B95" />
+                        <Text style={value ? styles.dateTriggerText : styles.dropdownPlaceholder}>
+                            {value ? formatDisplayDate(value) : 'Seleccionar fecha'}
+                        </Text>
+                    </Pressable>
 
-            {Platform.OS === 'ios' && showPicker && (
-                <Pressable style={styles.iosDateDoneBtn} onPress={() => setShowPicker(false)}>
-                    <Text style={styles.iosDateDoneText}>Listo</Text>
-                </Pressable>
+                    {showPicker && (
+                        <DateTimePicker
+                            value={dateValue}
+                            mode="date"
+                            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                            maximumDate={maximumDate}
+                            onChange={handleChange}
+                        />
+                    )}
+
+                    {Platform.OS === 'ios' && showPicker && (
+                        <Pressable style={styles.iosDateDoneBtn} onPress={() => setShowPicker(false)}>
+                            <Text style={styles.iosDateDoneText}>Listo</Text>
+                        </Pressable>
+                    )}
+                </>
             )}
         </View>
     );
@@ -454,8 +469,39 @@ function EditProfileModal({
         setSelectedContraindications(new Set(initialContraindications.map(c => c.name)));
         clinicalProfileService.getContraindicationCatalog()
             .then(setCatalog)
-            .catch(() => Alert.alert('Error', 'No se pudo cargar el catálogo de contraindicaciones'));
+            .catch(() => appAlert('Error', 'No se pudo cargar el catálogo de contraindicaciones'));
     }, [visible, initial, initialContraindications]);
+
+    // Calcular edad e IMC automáticamente
+    useEffect(() => {
+        setForm(prev => {
+            let newAge = prev.age;
+            let newBmi = prev.bmi;
+
+            if (prev.birthDate && !isNaN(Date.parse(prev.birthDate))) {
+                const birth = new Date(prev.birthDate);
+                const ageDiffMs = Date.now() - birth.getTime();
+                const ageDate = new Date(ageDiffMs);
+                const calculatedAge = Math.abs(ageDate.getUTCFullYear() - 1970);
+                newAge = calculatedAge.toString();
+            }
+
+            if (prev.weight && prev.height) {
+                const weightNum = parseFloat(prev.weight);
+                const heightNum = parseFloat(prev.height);
+                if (!isNaN(weightNum) && !isNaN(heightNum) && heightNum > 0) {
+                    const heightMeters = heightNum / 100;
+                    const calculatedBmi = (weightNum / (heightMeters * heightMeters)).toFixed(2);
+                    newBmi = calculatedBmi;
+                }
+            }
+
+            if (newAge !== prev.age || newBmi !== prev.bmi) {
+                return { ...prev, age: newAge, bmi: newBmi };
+            }
+            return prev;
+        });
+    }, [form.birthDate, form.weight, form.height]);
 
     const toggleContraindication = (name: string) => {
         setSelectedContraindications(prev => {
@@ -465,9 +511,9 @@ function EditProfileModal({
         });
     };
 
-    const field = (label: string, key: keyof typeof form, keyboard: any = 'default') => (
-        <View style={styles.formField}>
-            <Text style={styles.formLabel}>{label}</Text>
+    const field = (label: string, key: keyof typeof form, keyboard: any = 'default', editable: boolean = true) => (
+        <View style={[styles.formField, !editable && { opacity: 0.6 }]}>
+            <Text style={styles.formLabel}>{label}{!editable ? ' (Auto)' : ''}</Text>
             <TextInput
                 style={styles.formInput}
                 value={form[key]}
@@ -475,6 +521,8 @@ function EditProfileModal({
                 keyboardType={keyboard}
                 placeholderTextColor="#aaa"
                 placeholder={label}
+                editable={editable}
+                selectTextOnFocus={editable}
             />
         </View>
     );
@@ -541,7 +589,7 @@ function EditProfileModal({
             onClose();
         } catch (error) {
             console.error('Error saving clinical profile:', error);
-            Alert.alert('Error', 'No se pudieron guardar los cambios');
+            appAlert('Error', 'No se pudieron guardar los cambios');
         } finally {
             setSaving(false);
         }
@@ -568,7 +616,7 @@ function EditProfileModal({
                         onChange={(v) => setForm(f => ({ ...f, birthDate: v }))}
                         maximumDate={new Date()}
                     />
-                    {field('Edad en la evaluación', 'age', 'numeric')}
+                    {field('Edad en la evaluación', 'age', 'numeric', false)}
 
                     <View style={styles.formField}>
                         <Text style={styles.formLabel}>Sexo biológico</Text>
@@ -606,7 +654,7 @@ function EditProfileModal({
 
                     {field('Peso (kg)', 'weight', 'numeric')}
                     {field('Talla (cm)', 'height', 'numeric')}
-                    {field('IMC', 'bmi', 'numeric')}
+                    {field('IMC', 'bmi', 'numeric', false)}
                     {field('Percentil IMC', 'bmiPercentile', 'numeric')}
                     {field('Enfermedades previas al diagnóstico', 'priorConditions')}
                     {field('Comorbilidades actuales', 'currentComorbidities')}
@@ -811,6 +859,7 @@ export default function ParentalDashboard() {
     const [data, setData] = useState<DashboardData | null>(null);
     const [loading, setLoading] = useState(true);
     const [showEdit, setShowEdit] = useState(false);
+    const [showMoreProfile, setShowMoreProfile] = useState(false);
     const [userId, setUserId] = useState<number>(0);
     const [exporting, setExporting] = useState(false);
     const [contraindications, setContraindications] = useState<{ name: string; description: string | null }[]>([]);
@@ -820,7 +869,7 @@ export default function ParentalDashboard() {
     const [prePost, setPrePost] = useState<{ metric: string; before: number; after: number }[]>([]);
     const [sessionHeartRate, setSessionHeartRate] = useState<{ timestamp: string; value: number }[]>([]);
 
-    useEffect(() => { loadDashboard(); }, []);
+    useFocusEffect(useCallback(() => { loadDashboard(); }, []));
 
     const loadDashboard = async () => {
         try {
@@ -855,7 +904,7 @@ export default function ParentalDashboard() {
                 }
             }
         } catch (e) {
-            Alert.alert('Error', 'No se pudo cargar el dashboard');
+            appAlert('Error', 'No se pudo cargar el dashboard');
         } finally {
             setLoading(false);
         }
@@ -874,29 +923,28 @@ export default function ParentalDashboard() {
             await exportDashboardPDF(data, userId);
         } catch (e) {
             console.error('PDF error:', e);
-            Alert.alert('Error', 'No se pudo generar el PDF');
+            appAlert('Error', 'No se pudo generar el PDF');
         } finally {
             setExporting(false);
         }
     };
 
     const handleDeleteRoutine = (routineName: string) => {
-        Alert.alert(
+        const doDelete = async () => {
+            try {
+                await routineService.deleteRoutine(routineName);
+                await loadDashboard();
+            } catch {
+                appAlert('Error', 'No se pudo eliminar la rutina');
+            }
+        };
+
+        appAlert(
             'Eliminar rutina',
             `¿Seguro que quieres eliminar "${routineName}"? Esta acción no se puede deshacer.`,
             [
                 { text: 'Cancelar', style: 'cancel' },
-                {
-                    text: 'Eliminar', style: 'destructive',
-                    onPress: async () => {
-                        try {
-                            await routineService.deleteRoutine(routineName);
-                            await loadDashboard();
-                        } catch {
-                            Alert.alert('Error', 'No se pudo eliminar la rutina');
-                        }
-                    },
-                },
+                { text: 'Eliminar', style: 'destructive', onPress: doDelete },
             ],
         );
     };
@@ -975,7 +1023,7 @@ export default function ParentalDashboard() {
                     <MetricCard icon="local-fire-department" label="Racha" value={`${stats.streak} días`} valueColor="#E07B54" />
                     <MetricCard icon="directions-walk" label="Pasos hoy" value={stats.todaySteps.toLocaleString()} />
                     <MetricCard icon="fitness-center" label="Sesiones mes" value={`${stats.sessionsThisMonth}`} />
-                    <MetricCard icon="stars" label="FP totales" value={stats.fp.toLocaleString()} valueColor="#534AB7" />
+                    <MetricCard icon="stars" label="PE totales" value={stats.fp.toLocaleString()} valueColor="#534AB7" />
                 </View>
 
                 {/* Datos clínicos */}
@@ -994,6 +1042,34 @@ export default function ParentalDashboard() {
                             <DataRow icon="event" label="Nacimiento" value={profile.birthDate ? new Date(profile.birthDate).toLocaleDateString('es-ES') : 'No especificado'} />
                             <DataRow icon="local-hospital" label="Hospital" value={profile.hospital || 'No especificado'} />
                             <DataRow icon="event-available" label="Fin tratamiento" value={profile.treatmentEndDate ? new Date(profile.treatmentEndDate).toLocaleDateString('es-ES') : 'No especificado'} />
+
+                            {showMoreProfile && (
+                                <>
+                                    <View style={{ height: 1, backgroundColor: '#E0E0E0', marginVertical: 8 }} />
+                                    <DataRow icon="person" label="Edad" value={profile.age != null ? `${profile.age} años` : 'No especificada'} />
+                                    <DataRow icon="wc" label="Sexo biológico" value={profile.biologicalSex === 'male' ? 'Hombre' : profile.biologicalSex === 'female' ? 'Mujer' : profile.biologicalSex || 'No especificado'} />
+                                    <DataRow icon="boy" label="Estadio de Tanner" value={profile.tannerStage || 'No especificado'} />
+                                    <DataRow icon="monitor-weight" label="IMC" value={profile.bmi != null ? `${profile.bmi}` : 'No especificado'} />
+                                    <DataRow icon="bar-chart" label="Percentil IMC" value={profile.bmiPercentile != null ? `${profile.bmiPercentile}%` : 'No especificado'} />
+                                    <DataRow icon="medical-services" label="Condiciones previas" value={profile.priorConditions || 'No especificadas'} />
+                                    <DataRow icon="healing" label="Comorbilidades" value={profile.currentComorbidities || 'No especificadas'} />
+                                    <DataRow icon="family-restroom" label="Historial familiar" value={profile.familyHistory || 'No especificado'} />
+                                    <DataRow icon="vaccines" label="Diagnóstico" value={profile.diagnosis || 'No especificado'} />
+                                    {contraindications.length > 0 && (
+                                        <DataRow icon="warning" label="Contraindicaciones" value={contraindications.map(c => c.name).join(', ')} />
+                                    )}
+                                </>
+                            )}
+
+                            <Pressable
+                                style={{ marginTop: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 6 }}
+                                onPress={() => setShowMoreProfile(!showMoreProfile)}
+                            >
+                                <Text style={{ fontSize: 13, fontWeight: '600', color: '#6B5B95', marginRight: 4 }}>
+                                    {showMoreProfile ? 'Ver menos' : 'Ver más'}
+                                </Text>
+                                <MaterialIcons name={showMoreProfile ? 'expand-less' : 'expand-more'} size={18} color="#6B5B95" />
+                            </Pressable>
                         </Card>
                     ) : (
                         <Card>

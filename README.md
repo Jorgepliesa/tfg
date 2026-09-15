@@ -1,144 +1,183 @@
-sudo systemctl enable --now docker
+# 🏋️‍♂️ GamificaTFG - Plataforma Gamificada de Promoción del Ejercicio Físico y Salud
 
+[![React Native](https://img.shields.io/badge/React_Native-19.1-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://reactnative.dev/)
+[![Expo](https://img.shields.io/badge/Expo-54-000000?style=for-the-badge&logo=expo&logoColor=white)](https://expo.dev/)
+[![NestJS](https://img.shields.io/badge/NestJS-11-E0234E?style=for-the-badge&logo=nestjs&logoColor=white)](https://nestjs.com/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
+[![Docker](https://img.shields.io/badge/Docker-Enabled-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://www.docker.com/)
 
-Para levantar el docker: docker compose up -d (y tener iniciado docker desktop antes iniciado)
+> **Trabajo de Fin de Grado (TFG)**
+> Aplicación multiplataforma (Web y Móvil) para fomentar la adherencia al ejercicio físico mediante dinámicas de gamificación, evaluación del bienestar y supervisión tutelada.
 
-Para borrar todo y empezar de cero: docker compose down -v. Resetea
+---
 
-Para pararlo simplemente: docker compose down y sudo systemctl stop docker
-(aunque este ultimo no hace falta)
+## 📋 Tabla de Contenidos
 
-Si deja de funcionar porque ha cambiado la ip, acordarse de que hay 
-que cambiarla en el .env
+1. [Acerca del Proyecto](#-acerca-del-proyecto)
+2. [Características Principales](#-características-principales)
+3. [Arquitectura del Sistema](#-arquitectura-del-sistema)
+4. [Stack Tecnológico](#-stack-tecnológico)
+5. [Requisitos Previos](#-requisitos-previos)
+6. [Guía de Instalación y Despliegue](#-guía-de-instalación-y-despliegue)
+7. [Estructura del Proyecto](#-estructura-del-proyecto)
+8. [Créditos y Licencia](#-créditos-y-licencia)
 
-EN OTRA TERMINAL
-en cd backend
+---
+
+## 🎯 Acerca del Proyecto
+
+**GamificaTFG** es una solución tecnológica integral orientada a incentivar el hábito de realizar actividad física regular. Combina mecánicas de videojuegos (puntos de experiencia/FP, avatares personalizables, tienda virtual, cromos educativos y retos comunitarios) con un riguroso seguimiento del estado de salud y bienestar de los usuarios a través de cuestionarios pre y post entrenamiento. Además, incluye un panel parental de administración para tutores y supervisores.
+
+---
+
+## ✨ Características Principales
+
+- 🏋️ **Gestión y Ejecución de Rutinas**: Catálogo de rutinas deportivas (calentamiento, cardio, fuerza, estiramientos) guiadas mediante vídeos integrados de YouTube y temporización en tiempo real.
+- 🧘 **Evaluación de Bienestar (Pre/Post)**: Test de valoración de dolor corporal, somnolencia, fatiga y estado de ánimo antes y después de cada sesión de ejercicios.
+- 🎨 **Gamificación & Personalización**:
+  - **Puntos de Fitness (FP)** obtenidos al completar sesiones de entrenamiento.
+  - **Tienda Virtual**: Compra de atuendos, accesorios e ítems para el avatar.
+  - **Inventario**: Equipamiento y personalización visual del avatar.
+  - **Cromos Educativos / Memoriales**: Desbloqueo de elementos pedagógicos sobre hábitos saludables.
+- 🤝 **Desafíos Cooperativos**: Retos comunitarios de pasos diarios en los que los usuarios suman fuerzas para alcanzar metas globales.
+- 👨‍👩‍👧 **Panel Parental / Tutor**: Control de tiempos de uso, monitoreo de sesiones finalizadas y gestión de parámetros de cuenta para tutores.
+
+---
+
+## 🛠 Stack Tecnológico
+
+### **Frontend / Cliente**
+- **Framework**: [React Native](https://reactnative.dev/) con [Expo Router](https://docs.expo.dev/router/introduction/) (File-based routing).
+- **Web Support**: React Native Web.
+- **UI & Iconos**: Lucide React Native, Expo Vector Icons, Modal personalizado Multiplataforma.
+- **Comunicación HTTP**: Axios con interceptores de autenticación y renovación de tokens.
+
+### **Backend / API**
+- **Framework**: [NestJS](https://nestjs.com/) (Node.js).
+- **ORM**: [TypeORM](https://typeorm.io/) con PostgreSQL.
+- **Autenticación**: JWT (JSON Web Tokens) & bcrypt.
+- **Validación y DTOs**: `class-validator` y `class-transformer`.
+
+### **Infraestructura y Datos**
+- **Base de Datos**: PostgreSQL 16 alojado en un contenedor Docker.
+- **Contenerización**: Docker & Docker Compose.
+
+---
+
+## 📦 Requisitos Previos
+
+Asegúrate de tener instalados los siguientes componentes en tu entorno de desarrollo:
+
+- [Node.js](https://nodejs.org/) (v18.x o superior)
+- [npm](https://www.npmjs.com/) (v9.x o superior)
+- [Docker](https://www.docker.com/) y Docker Compose
+- App de **Expo Go** en tu dispositivo móvil (opcional para pruebas en celular)
+
+---
+
+## 🚀 Guía de Instalación y Despliegue
+
+Sigue estos pasos para poner en marcha el proyecto completo localmente.
+
+### 1️⃣ Clonar el repositorio
+```bash
+git clone <URL_DEL_REPOSITORIO>
+cd tfg
+```
+
+### 2️⃣ Iniciar la Base de Datos PostgreSQL (Docker)
+```bash
+# Iniciar contenedor de PostgreSQL en segundo plano
+docker compose up -d
+
+# Para reiniciar la base de datos desde cero si es necesario:
+# docker compose down -v && docker compose up -d
+```
+
+### 3️⃣ Iniciar el Backend (NestJS API)
+Navega a la carpeta `backend/` e instala las dependencias:
+```bash
+cd backend
+npm install
+```
+
+Configura tu archivo de variables de entorno `.env` en `backend/` (o revisa el predeterminado):
+```env
+PORT=3000
+DATABASE_URL=postgres://postgres:postgres@localhost:5432/tfg_db
+JWT_SECRET=tu_secreto_super_seguro
+JWT_EXPIRES_IN=7d
+```
+
+Genera y puebla la base de datos con datos de prueba/semillas:
+```bash
+# Cargar datos de prueba sintéticos (usuarios, avatares, rutinas, items)
+npm run seed:synthetic
+```
+
+Levanta la API REST en modo desarrollo:
+```bash
 npm run start:dev
+```
+La API estará disponible en: `http://localhost:3000`
 
-To run your project, navigate to the directory and run one of the following npm commands.
+### 4️⃣ Iniciar el Frontend (Expo Router)
+En otra terminal, navega a la carpeta `frontend/`:
+```bash
+cd frontend
+npm install
+```
 
-en cd frontend
+Asegúrate de que el `.env` en `frontend/` apunte a la IP de tu servidor backend:
+```env
+EXPO_PUBLIC_API_URL=http://localhost:3000
+```
+> *(Nota: Si estás probando en dispositivo físico a través de red local, usa la IP local de tu ordenador, por ejemplo `http://192.168.1.X:3000`)*.
 
-npx expo start --tunnel (para hacer tunel seguro)
+Ejecuta el cliente según la plataforma elegida:
+```bash
+# En Navegador Web
+npm run web
 
-- npm run android
-- npm run ios # you need to use macOS to build the iOS project - use the Expo app if you need to do iOS development without a Mac
-- npm run web
-o en general npx expo start
+# En Emulador Android
+npm run android
 
+# Servidor Expo general (QR para Expo Go)
+npx expo start
+```
 
-App de ejemplo
-app/
-├── (tabs)/           # Rutas con tabs de navegación
-│   ├── index.tsx     # Pantalla principal → ruta: "/"
-│   └── profile.tsx   # Ejemplo → ruta: "/profile"
-├── modal.tsx         # Pantalla modal → ruta: "/modal"
-└── _layout.tsx       # Layout raíz (configura navegación)
+---
 
-frontend/
-├── .env                           # Variables de entorno (API_URL)
-├── app/
-│   ├── _layout.tsx               # ✅ NUEVO: Layout raíz con protección de rutas
-│   ├── login.tsx                 # ✅ NUEVO: Pantalla de login
-│   ├── (tabs)/                   # Rutas protegidas (requieren autenticación)
-│   │   ├── _layout.tsx           # Layout de tabs
-│   │   ├── index.tsx             # Pantalla inicial con avatar
-│   │   ├── profile.tsx           # Perfil del usuario
-│   │   ├── shop.tsx              # Tienda (gastar FP en items)
-│   │   ├── routines.tsx          # Selección de rutinas
-│   │   └── memorials.tsx         # Cromos educativos desbloqueados
-│   ├── session/
-│   │   ├── [id].tsx              # Pantalla de sesión activa
-│   │   ├── wellness-initial.tsx  # Cuestionario bienestar inicial
-│   │   └── wellness-final.tsx    # Cuestionario bienestar final
-│   └── modal.tsx                 # Modales generales
-├── components/
-│   ├── ThemedView.tsx
-│   ├── ThemedText.tsx
-│   ├── AvatarDisplay.tsx         # ✅ NUEVO: Mostrar avatar personalizable
-│   ├── ItemCard.tsx              # ✅ NUEVO: Card para items de tienda
-│   └── WellnessForm.tsx          # ✅ NUEVO: Formulario bienestar (1-5 scale)
-├── services/
-│   ├── authService.ts            # ✅ NUEVO: Login, logout, refresh tokens
-│   ├── userService.ts            # ✅ NUEVO: Gestión de User/Avatar
-│   ├── sessionService.ts         # ✅ NUEVO: CRUD sesiones + wellness tests
-│   ├── shopService.ts            # ✅ NUEVO: Obtener items, comprar (descontar FP)
-│   └── apiClient.ts              # ✅ NUEVO: Cliente HTTP con interceptor para refresh token
-└── types/
-    ├── user.ts                   # ✅ NUEVO: Tipos User, Avatar
-    ├── session.ts                # ✅ NUEVO: Tipos Session, WellnessTest
-    └── shop.ts                   # ✅ NUEVO: Tipos Item, Keep
+## 📁 Estructura del Proyecto
 
+```text
+tfg/
+├── README.md                 # Documentación principal del proyecto
+├── docker-compose.yml        # Configuración del contenedor PostgreSQL
+├── docs/                     # Scripts SQL de semillas y recursos adicionales
+│   └── seed_rutinas_libro.sql
+├── backend/                  # Servidor API NestJS
+│   ├── src/
+│   │   ├── auth/             # Módulo de autenticación (JWT, Login)
+│   │   ├── user/             # Gestión de Usuarios y Avatares
+│   │   ├── session/          # Sesiones de ejercicio y cuestionarios bienestar
+│   │   ├── shop/             # Tienda virtual e inventario de ítems
+│   │   ├── steps/            # Contador de pasos diarios
+│   │   ├── challenge/        # Desafíos cooperativos comunitarios
+│   │   └── main.ts           # Punto de entrada de NestJS
+│   └── README.md             # Documentación específica del Backend
+└── frontend/                 # Aplicación cliente React Native / Expo
+    ├── app/                  # Sistema de rutas basado en archivos (Expo Router)
+    │   ├── (tabs)/           # Navegación principal por pestañas (Home, Tienda, Rutinas, Perfil)
+    │   ├── session/          # Pantallas de sesión activa y test de bienestar
+    │   └── parental-dashboard.tsx # Panel de control parental
+    ├── components/           # Componentes reutilizables UI (Modales, Cards, Avatares)
+    ├── services/             # Servicios HTTP de conexión con el Backend
+    └── README.md             # Documentación específica del Frontend
+```
 
-backend/
-├── src/
-│   ├── auth/
-│   │   ├── auth.module.ts
-│   │   ├── auth.controller.ts    # ✅ NUEVO: POST /auth/login, /auth/refresh
-│   │   ├── auth.service.ts       # ✅ NUEVO: Validar user, generar tokens JWT
-│   │   ├── jwt.strategy.ts       # ✅ NUEVO: Estrategia Passport JWT
-│   │   └── dto/
-│   │       └── login.dto.ts      # ✅ NUEVO: Validación username/password
-│   ├── user/
-│   │   ├── user.module.ts
-│   │   ├── user.controller.ts    # GET /users/me, PATCH /users/:id
-│   │   ├── user.service.ts       # Lógica CRUD User
-│   │   └── entities/
-│   │       ├── user.entity.ts    # User (id, username, password, streak)
-│   │       └── avatar.entity.ts  # Avatar (id, avatar_name, FP, user FK)
-│   ├── session/
-│   │   ├── session.module.ts
-│   │   ├── session.controller.ts # POST /sessions, GET /sessions/:id
-│   │   ├── session.service.ts    # Crear sesión con 2 wellness tests (transacción)
-│   │   └── entities/
-│   │       ├── session.entity.ts         # Session (id, date TIMESTAMP, user FK)
-│   │       └── wellness-test.entity.ts   # WellnessTest (session FK, test_type, pain, mood, fatigue, sleepiness)
-│   ├── shop/
-│   │   ├── shop.module.ts
-│   │   ├── shop.controller.ts    # GET /shop/items, POST /shop/buy
-│   │   ├── shop.service.ts       # Validar FP >= price, descontar FP (transacción)
-│   │   └── entities/
-│   │       ├── item.entity.ts    # Item (name PK, type, price, is_premium)
-│   │       └── keep.entity.ts    # Keep (item FK, avatar FK, is_wearing BOOLEAN)
-│   ├── steps/
-│   │   ├── steps.module.ts
-│   │   ├── steps.controller.ts   # POST /steps, GET /steps/daily
-│   │   ├── steps.service.ts      # Validar (date, user) única por día
-│   │   └── entities/
-│   │       └── steps.entity.ts   # Steps (date DATE, user FK, num_steps, is_reached)
-│   ├── challenge/
-│   │   ├── challenge.module.ts
-│   │   ├── challenge.controller.ts # GET /challenges, POST /challenges/:name/complete
-│   │   ├── challenge.service.ts    # Calcular sum_steps (vista o query), actualizar total_steps
-│   │   └── entities/
-│   │       ├── coop-challenge.entity.ts # CoopChallenge (name PK, start_date, end_date, total_steps)
-│   │       └── complete.entity.ts       # Complete (challenge FK, avatar FK, contributed_steps)
-│   ├── common/
-│   │   ├── guards/
-│   │   │   └── jwt-auth.guard.ts # ✅ NUEVO: Guard para proteger rutas
-│   │   ├── interceptors/
-│   │   │   └── transaction.interceptor.ts # ✅ NUEVO: Gestionar transacciones automáticas
-│   │   └── decorators/
-│   │       └── current-user.decorator.ts  # ✅ NUEVO: Obtener user desde JWT
-│   └── main.ts
-├── .env                           # DATABASE_URL, JWT_SECRET, JWT_EXPIRES_IN
-└── package.json
+---
 
+## 📜 Créditos y Licencia
 
-backend
-nombre-proyecto/
-├── src/
-│   ├── config/         # Configuración de la base de datos (TypeORM), variables de entorno
-│   ├── controllers/    # Lógica de las rutas (manejo de req/res)
-│   ├── entities/       # Modelos/Entidades de TypeORM (tablas de BD)
-│   ├── migrations/     # Archivos de migraciones de base de datos
-│   ├── middlewares/    # Middlewares de express (auth, validación)
-│   ├── routes/         # Definición de las rutas de la API
-│   ├── services/       # Lógica de negocio, interacción con el repositorio
-│   ├── utils/          # Funciones de ayuda o utilidades
-│   └── app.js          # Punto de entrada de la aplicación (Express setup)
-├── .env                # Variables de entorno (credenciales BD)
-├── .gitignore
-├── ormconfig.json      # Configuración específica de TypeORM
-├── package.json
-└── README.md
+Este proyecto ha sido desarrollado como **Trabajo de Fin de Grado (TFG)** universitario. Todos los derechos reservados.

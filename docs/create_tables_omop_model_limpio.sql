@@ -1,4 +1,4 @@
-CREATE SCHEMA omop_cdm;  
+CREATE SCHEMA omop_modified;  
 -- https://github.com/OHDSI/CommonDataModel/blob/v5.4.0/inst/ddl/5.4/postgresql/OMOPCDM_postgresql_5.4_ddl.sql
 CREATE SCHEMA custom;
 CREATE SCHEMA omop_cdm;

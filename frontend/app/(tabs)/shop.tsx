@@ -1,7 +1,7 @@
 import { useRouter } from 'expo-router';
 import {
     View, Text, StyleSheet, Pressable, ScrollView,
-    Modal, ActivityIndicator, Alert, Platform
+    Modal, ActivityIndicator, Platform
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -11,6 +11,7 @@ import { avatarService } from '../../services/avatarService';
 import { shopService } from '@/services/shopService';
 import { BACKEND_URL } from '@/services/api';
 import { Image } from 'expo-image';
+import { appAlert } from '@/components/AppAlert';
 
 const CATEGORIES = ['head', 'body', 'arms', 'legs', 'feet', 'face', 'accessory'] as const;
 type Category = typeof CATEGORIES[number];
@@ -89,7 +90,7 @@ export default function Shop() {
             setFp(fitnessPoints);
         } catch (error) {
             console.error('Error loading shop:', error);
-            Alert.alert('Error', 'No se pudo cargar la tienda');
+            appAlert('Error', 'No se pudo cargar la tienda');
         } finally {
             setLoading(false);
         }
@@ -114,10 +115,10 @@ export default function Shop() {
             setFp(result.remainingFp);
             await loadData();
             setShowConfirmModal(false);
-            Alert.alert('¡Comprado!', `Has adquirido "${selectedItem.name}"`);
+            appAlert('¡Comprado!', `Has adquirido "${selectedItem.name}"`);
         } catch (error: any) {
             const msg = error?.response?.data?.message || 'No se pudo completar la compra';
-            Alert.alert('Error', msg);
+            appAlert('Error', msg);
         } finally {
             setBuying(false);
         }
@@ -128,7 +129,7 @@ export default function Shop() {
             await shopService.equipItem(itemName);
             await loadData();
         } catch (error) {
-            Alert.alert('Error', 'No se pudo equipar el objeto');
+            appAlert('Error', 'No se pudo equipar el objeto');
         }
     };
 
@@ -313,7 +314,7 @@ export default function Shop() {
                                     <Text style={styles.modalFpCost}>🔥 {selectedItem.cost}</Text>
                                 </View>
                                 <View style={styles.modalFpRow}>
-                                    <Text style={styles.modalFpLabel}>Tus FP:</Text>
+                                    <Text style={styles.modalFpLabel}>Tus PE:</Text>
                                     <Text style={[
                                         styles.modalFpOwned,
                                         fp < selectedItem.cost && styles.modalFpInsufficient

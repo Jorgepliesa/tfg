@@ -1,50 +1,102 @@
-# Welcome to your Expo app 👋
+# 📱 GamificaTFG - Cliente Frontend (React Native & Expo)
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+[![React Native](https://img.shields.io/badge/React_Native-0.81-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://reactnative.dev/)
+[![Expo](https://img.shields.io/badge/Expo-54-000000?style=for-the-badge&logo=expo&logoColor=white)](https://expo.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 
-## Get started
+Aplicación móvil y web desarrollada con **React Native**, **Expo Router** y **TypeScript**. Sirve como la interfaz de usuario interactiva para la plataforma gamificada de ejercicio físico.
 
-1. Install dependencies
+---
 
-   ```bash
-   npm install
-   ```
+## 🚀 Características del Cliente
 
-2. Start the app
+- 📱 **Multiplataforma**: Funciona nativamente en iOS, Android y Navegadores Web.
+- 🗺 **Navegación declarativa por archivos**: Uso de **Expo Router v6** con pestañas inferiores (*tabs*), modales y rutas dinámicas.
+- 🎨 **Interfaz Responsiva y Personalizada**:
+  - Modal global personalizado (`appAlert`) compatible con Web y Móvil para notificaciones y confirmaciones.
+  - Reproducción integrada de vídeos instructivos de YouTube mediante iframe.
+  - Animaciones y retroalimentación hática (*haptics*).
+- 🔐 **Gestión de Sesión y Autenticación**: Almacenamiento seguro de tokens JWT con renovación automática (`apiClient` con interceptores Axios).
 
-   ```bash
-   npx expo start
-   ```
+---
 
-In the output, you'll find options to open the app in a
+## 📁 Estructura del Frontend
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
+```text
+frontend/
+├── app/                              # Rutas de Expo Router
+│   ├── _layout.tsx                  # Layout raíz con proveedor de autenticación y modales
+│   ├── login.tsx                    # Pantalla de inicio de sesión
+│   ├── parental-dashboard.tsx       # Panel de control parental / supervisión
+│   ├── routine-builder.tsx          # Creador y editor de rutinas personalizadas
+│   ├── (tabs)/                      # Pestañas principales
+│   │   ├── _layout.tsx              # Configuración de la barra de pestañas
+│   │   ├── home.tsx                 # Pantalla principal (Avatar, Estado, Desafíos)
+│   │   ├── routines.tsx             # Catálogo y selección de rutinas
+│   │   ├── shop.tsx                 # Tienda virtual de atuendos e ítems
+│   │   ├── inventory.tsx            # Inventario del avatar y equipamiento
+│   │   ├── memorials.tsx            # Cromos educativos e informativos
+│   │   └── profile.tsx              # Perfil de usuario y estadísticas
+│   └── session/                     # Flujo de ejecución de ejercicio
+│       ├── wellnessTest.tsx         # Test de bienestar inicial (Pre-entrenamiento)
+│       ├── exercises/               # Guía paso a paso de ejercicios de la rutina
+│       └── finalWellnessTest.tsx    # Test de bienestar final (Post-entrenamiento)
+├── components/                      # Componentes UI reutilizables
+│   ├── AvatarDisplay.tsx            # Renderizado gráfico del avatar
+│   ├── CustomAlertModal.tsx         # Modal multiplataforma para alertas
+│   ├── ItemCard.tsx                 # Card para objetos de la tienda
+│   └── WellnessForm.tsx             # Formulario graduado de dolor/fatiga
+├── services/                        # Capa de integración con la API REST
+│   ├── apiClient.ts                 # Instancia Axios con interceptores
+│   ├── authService.ts               # Autenticación y gestión de tokens
+│   ├── sessionService.ts            # CRUD de sesiones y tests de bienestar
+│   ├── shopService.ts               # Compras en tienda y gestión de FP
+│   └── userService.ts               # Datos de usuario y avatar
+├── types/                           # Declaraciones de tipos TypeScript
+│   ├── user.ts                      # Interfaces de Usuario y Avatar
+│   ├── session.ts                   # Interfaces de Sesiones y Bienestar
+│   └── shop.ts                      # Interfaces de Items e Inventario
+└── package.json
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+---
 
-## Learn more
+## ⚙️ Configuración del Entorno
 
-To learn more about developing your project with Expo, look at the following resources:
+Crea o edita el archivo `.env` en la raíz del directorio `frontend/`:
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+```env
+# Dirección URL de la API REST Backend
+EXPO_PUBLIC_API_URL=http://localhost:3000
+```
 
-## Join the community
+> ⚠️ **Nota para pruebas en móvil físico con Expo Go**:  
+> Sustituye `localhost` por la IP privada de tu ordenador en la red local (ejemplo: `http://192.168.1.50:3000`).
 
-Join our community of developers creating universal apps.
+---
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+## 🛠️ Comandos de Ejecución
+
+Instalar dependencias:
+```bash
+npm install
+```
+
+### Ejecutar en Navegador Web
+```bash
+npm run web
+```
+
+### Ejecutar con Expo (Android / iOS / Expo Go)
+```bash
+# Iniciar servidor de desarrollo Expo
+npx expo start
+
+# Para conexiones a través de túnel seguro (si hay problemas de red)
+npx expo start --tunnel
+```
+
+### Comprobar sintaxis y tipos
+```bash
+npm run lint
+```

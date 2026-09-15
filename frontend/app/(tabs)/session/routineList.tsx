@@ -1,5 +1,6 @@
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { View, Text, StyleSheet, Pressable, ScrollView, ActivityIndicator, Alert, Modal } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ScrollView, ActivityIndicator, Modal } from 'react-native';
+import { appAlert } from '@/components/AppAlert';
 import { MaterialIcons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState, useEffect } from 'react';
@@ -47,7 +48,7 @@ export default function RoutineList() {
                 const data = await routineService.getMyRoutines(category);
                 setRoutines(data);
             } catch {
-                Alert.alert(t('routines.error_title'), t('routines.error_message'));
+                appAlert(t('routines.error_title'), t('routines.error_message'));
             } finally {
                 setLoading(false);
             }
@@ -62,7 +63,7 @@ export default function RoutineList() {
             router.push('/(tabs)/session/wellnessTest');
         } catch (error) {
             console.error('Error al cargar la rutina:', error);
-            Alert.alert(t('routines.error_title'), t('routines.error_message'));
+            appAlert(t('routines.error_title'), t('routines.error_message'));
         } finally {
             setSelecting(false);
         }

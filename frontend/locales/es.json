@@ -43,17 +43,10 @@
     "header_title": "Pre-ejercicio",
     "header_title_end": "Post-ejercicio",
     "questions": {
-      "pain": "¿Cómo te sientes de dolorido?",
-      "fatigue": "¿Cuánta fatiga sientes?",
-      "sleepiness": "¿Cómo fue tu sueño?",
-      "mood": "¿Cuál es tu ánimo?"
-    },
-    "likert": {
-      "very_bad": "Muy mal",
-      "bad": "Mal",
-      "neutral": "Regular",
-      "good": "Bien",
-      "very_good": "Muy bien"
+      "pain": "¿Estás dolorido?",
+      "fatigue": "¿Estás cansado?",
+      "sleepiness": "¿Cúanto sueño tienes?",
+      "mood": "¿Cómo te sientes?"
     },
     "buttons": {
       "next": "Siguiente",

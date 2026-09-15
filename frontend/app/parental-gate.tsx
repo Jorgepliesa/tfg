@@ -2,7 +2,8 @@ import { authService } from "@/services/authService";
 import { MaterialIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useState } from "react";
-import { Alert, View, StyleSheet, TextInput, Pressable, Text, Platform, Modal } from "react-native";
+import { View, StyleSheet, TextInput, Pressable, Text, Modal } from "react-native";
+import { appAlert } from "@/components/AppAlert";
 
 interface ParentalGateModalProps {
   onClose: () => void;
@@ -11,11 +12,10 @@ interface ParentalGateModalProps {
 export function ParentalGateModal({ onClose }: ParentalGateModalProps) {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
   const handleVerifyPassword = async () => {
     if (!password.trim()) {
-      Alert.alert('Error', 'Please, enter a password.');
+      appAlert('Error', 'Por favor, introduce una contraseña.');
       return;
     }
 
@@ -34,7 +34,7 @@ export function ParentalGateModal({ onClose }: ParentalGateModalProps) {
       const data = await response.json();
 
       if (!data.valid) {
-        Alert.alert('Error', 'Contraseña incorrecta. Pruebe de nuevo.');
+        appAlert('Error', 'Contraseña incorrecta. Pruebe de nuevo.');
         return;
       }
 
@@ -42,24 +42,21 @@ export function ParentalGateModal({ onClose }: ParentalGateModalProps) {
       onClose();
       router.push('/parental-dashboard');
     } catch (error) {
-      Alert.alert('Error', 'Ha ocurrido un error al verificar la contraseña. Por favor, inténtelo de nuevo.');
+      appAlert('Error', 'Ha ocurrido un error al verificar la contraseña. Por favor, inténtelo de nuevo.');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleLogout = async () => {
-    if (Platform.OS === 'web') {
-      setShowLogoutConfirm(true);
-    }
-    else {
-      Alert.alert('Confirmar cierre de sesión', '¿Estás seguro de que quieres cerrar la sesión?',
-        [
-          { text: 'Cancelar', style: 'cancel' },
-          { text: 'Cerrar sesión', style: 'destructive', onPress: confirmLogout },
-        ]
-      );
-    }
+  const handleLogout = () => {
+    appAlert(
+      'Confirmar cierre de sesión',
+      '¿Estás seguro de que quieres cerrar la sesión?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Cerrar sesión', style: 'destructive', onPress: confirmLogout },
+      ]
+    );
   };
 
   const confirmLogout = async () => {
@@ -67,6 +64,7 @@ export function ParentalGateModal({ onClose }: ParentalGateModalProps) {
     onClose();
     router.replace('/login');
   };
+
 
   return (
     <View style={styles.overlay}>
@@ -113,53 +111,13 @@ export function ParentalGateModal({ onClose }: ParentalGateModalProps) {
           onPress={handleLogout}
         >
           <MaterialIcons name="logout" size={20} color="#FF6B6B" />
-          <Text style={styles.logoutButtonText}>Logout</Text>
+          <Text style={styles.logoutButtonText}>Cerrar Sesión</Text>
         </Pressable>
       </View>
-
-      {/* Modal confirmación logout en web */}
-      <Modal
-        visible={showLogoutConfirm}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowLogoutConfirm(false)}
-      >
-        <View style={styles.confirmOverlay}>
-          <View style={styles.confirmModal}>
-            <Text style={styles.confirmTitle}>Confirmar cierre de sesión</Text>
-            <Text style={styles.confirmMessage}>¿Estás seguro de que quieres cerrar la sesión?</Text>
-            <View style={styles.confirmButtons}>
-              <Pressable
-                style={({ pressed }) => [
-                  styles.confirmButton,
-                  styles.cancelButton,
-                  pressed && styles.buttonPressed,
-                ]}
-                onPress={() => setShowLogoutConfirm(false)}
-              >
-                <Text style={styles.cancelButtonText}>Cancelar</Text>
-              </Pressable>
-
-              <Pressable
-                style={({ pressed }) => [
-                  styles.confirmButton,
-                  styles.confirmLogoutButton,
-                  pressed && styles.buttonPressed,
-                ]}
-                onPress={() => {
-                  setShowLogoutConfirm(false);
-                  confirmLogout();
-                }}
-              >
-                <Text style={styles.confirmLogoutButtonText}>Logout</Text>
-              </Pressable>
-            </View>
-          </View>
-        </View>
-      </Modal>
     </View>
   );
 }
+
 
 const styles = StyleSheet.create({
   overlay: {
@@ -261,61 +219,5 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     marginLeft: 8,
-  },
-  // Estilos del modal de confirmación
-  confirmOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  confirmModal: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 24,
-    width: '100%',
-    maxWidth: 320,
-    elevation: 20,
-  },
-  confirmTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
-    textAlign: 'center',
-    marginBottom: 12,
-  },
-  confirmMessage: {
-    fontSize: 16,
-    color: '#666',
-    textAlign: 'center',
-    marginBottom: 24,
-  },
-  confirmButtons: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  confirmButton: {
-    flex: 1,
-    borderRadius: 8,
-    padding: 14,
-    alignItems: 'center',
-    minHeight: 48,
-  },
-  cancelButton: {
-    backgroundColor: '#E0E0E0',
-  },
-  cancelButtonText: {
-    color: '#666',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  confirmLogoutButton: {
-    backgroundColor: '#FF6B6B',
-  },
-  confirmLogoutButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
   },
 });

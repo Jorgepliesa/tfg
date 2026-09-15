@@ -1,12 +1,13 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
     View, Text, StyleSheet, Pressable, ScrollView, TextInput,
-    ActivityIndicator, Alert, Modal,
+    ActivityIndicator, Modal,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useEffect, useState } from 'react';
 import { routineService } from '@/services/routineService';
+import { appAlert } from '@/components/AppAlert';
 
 interface CatalogExercise {
     name: string;
@@ -20,7 +21,7 @@ interface CatalogExercise {
 }
 
 interface PlanExercise {
-    exerciseName: string; numReps: number; numSeries: number; duration: number | null; rest: number;
+    exerciseName: string; numReps: number; numSeries: number; duration: number | null; durationText?: string; rest: number;
 }
 
 const ROUTINE_CATEGORY_LABEL: Record<string, string> = {
@@ -30,6 +31,17 @@ const ROUTINE_CATEGORY_LABEL: Record<string, string> = {
 const EXERCISE_CATEGORY_LABEL: Record<string, string> = {
     aerobic: 'Cardio', strength: 'Fuerza', flexibility: 'Flexibilidad', balance: 'Equilibrio',
     warmup: 'Calentamiento', stretching: 'Estiramiento',
+};
+
+const CONTRAINDICATION_CATEGORY_LABEL: Record<string, string> = {
+    upper_limb: 'Tren superior',
+    lower_limb: 'Tren inferior',
+    vision: 'Visión',
+    hearing: 'Audición',
+    balance: 'Equilibrio',
+    neuropathy: 'Neuropatía',
+    cardiotoxicity_severe: 'Cardiotoxicidad severa',
+    osteoporosis_severe: 'Osteoporosis severa',
 };
 
 const DIFFICULTY_LABEL: Record<string, string> = { easy: 'Fácil', medium: 'Medio', hard: 'Difícil' };
@@ -63,16 +75,20 @@ export default function RoutineBuilder() {
                     setName(source.isPersonal ? source.routineName : `${source.routineName} (ajustada)`);
                     setCategory(source.category);
                     setDifficulty(source.difficulty);
-                    setPlan(source.exercises.map((e: any) => ({
-                        exerciseName: e.exerciseName,
-                        numReps: e.numReps,
-                        numSeries: e.numSeries,
-                        duration: e.duration !== null ? Number(e.duration) : null,
-                        rest: e.rest,
-                    })));
+                    setPlan(source.exercises.map((e: any) => {
+                        const dur = e.duration !== null ? Number(e.duration) : null;
+                        return {
+                            exerciseName: e.exerciseName,
+                            numReps: e.numReps,
+                            numSeries: e.numSeries,
+                            duration: dur,
+                            durationText: dur !== null ? String(dur) : undefined,
+                            rest: e.rest,
+                        };
+                    }));
                 }
             } catch {
-                Alert.alert('Error', 'No se pudo cargar la información necesaria');
+                appAlert('Error', 'No se pudo cargar la información necesaria');
             } finally {
                 setLoading(false);
             }
@@ -104,13 +120,29 @@ export default function RoutineBuilder() {
     };
 
     const toggleTimed = (exerciseName: string) => {
-        setPlan(prev => prev.map(p =>
-            p.exerciseName === exerciseName ? { ...p, duration: p.duration === null ? 1 : null } : p
-        ));
+        setPlan(prev => prev.map(p => {
+            if (p.exerciseName !== exerciseName) return p;
+            const newDuration = p.duration === null ? 1 : null;
+            return {
+                ...p,
+                duration: newDuration,
+                durationText: newDuration !== null ? '1' : undefined,
+            };
+        }));
     };
 
-    const updateDuration = (exerciseName: string, value: number) => {
-        setPlan(prev => prev.map(p => p.exerciseName === exerciseName ? { ...p, duration: value } : p));
+    const updateDurationText = (exerciseName: string, text: string) => {
+        const normalized = text.replace(',', '.');
+        const parsed = parseFloat(normalized);
+        const validNum = !isNaN(parsed) && parsed >= 0 ? parsed : 0;
+        setPlan(prev => prev.map(p => {
+            if (p.exerciseName !== exerciseName) return p;
+            return {
+                ...p,
+                durationText: text,
+                duration: validNum,
+            };
+        }));
     };
 
     const updateExerciseField = (exerciseName: string, field: keyof PlanExercise, value: number) => {
@@ -119,21 +151,30 @@ export default function RoutineBuilder() {
 
     const handleSave = async () => {
         if (!name.trim()) {
-            Alert.alert('Falta el nombre', 'Ponle un nombre a la rutina');
+            appAlert('Falta el nombre', 'Ponle un nombre a la rutina');
             return;
         }
         if (plan.length === 0) {
-            Alert.alert('Sin ejercicios', 'Añade al menos un ejercicio');
+            appAlert('Sin ejercicios', 'Añade al menos un ejercicio');
             return;
         }
 
-        const payloadExercises = plan.map(p => ({
-            exerciseName: p.exerciseName,
-            numReps: p.numReps,
-            numSeries: p.numSeries,
-            rest: p.rest,
-            ...(p.duration !== null ? { duration: p.duration } : {}),
-        }));
+        const payloadExercises = plan.map(p => {
+            let dur = p.duration;
+            if (p.durationText !== undefined) {
+                const parsed = parseFloat(p.durationText.replace(',', '.'));
+                if (!isNaN(parsed) && parsed > 0) {
+                    dur = parsed;
+                }
+            }
+            return {
+                exerciseName: p.exerciseName,
+                numReps: p.numReps,
+                numSeries: p.numSeries,
+                rest: p.rest,
+                ...(dur !== null ? { duration: dur } : {}),
+            };
+        });
 
         setSaving(true);
         try {
@@ -153,7 +194,7 @@ export default function RoutineBuilder() {
             router.back();
         } catch (error: any) {
             const msg = error?.response?.data?.message || 'No se pudo guardar la rutina';
-            Alert.alert('Error', Array.isArray(msg) ? msg.join('\n') : msg);
+            appAlert('Error', Array.isArray(msg) ? msg.join('\n') : msg);
         } finally {
             setSaving(false);
         }
@@ -268,7 +309,7 @@ export default function RoutineBuilder() {
                                         <View style={styles.detailRow}>
                                             <MaterialIcons name="block" size={14} color="#C0392B" />
                                             <Text style={[styles.detailText, { color: '#C0392B' }]}>
-                                                Contraindicaciones: <Text style={[styles.detailValueText, { color: '#C0392B', fontWeight: '500' }]}>{info.contraindications.join(', ')}</Text>
+                                                Contraindicaciones: <Text style={[styles.detailValueText, { color: '#C0392B', fontWeight: '500' }]}>{info.contraindications.map(c => CONTRAINDICATION_CATEGORY_LABEL[c] ?? c).join(', ')}</Text>
                                             </Text>
                                         </View>
                                     )}
@@ -303,9 +344,9 @@ export default function RoutineBuilder() {
                                     <Text style={styles.exerciseFieldLabel}>Duración (min)</Text>
                                     <TextInput
                                         style={styles.exerciseFieldInput}
-                                        keyboardType="numeric"
-                                        value={String(p.duration)}
-                                        onChangeText={(v) => updateDuration(p.exerciseName, parseFloat(v) || 0.5)}
+                                        keyboardType="decimal-pad"
+                                        value={p.durationText ?? (p.duration !== null ? String(p.duration) : '')}
+                                        onChangeText={(v) => updateDurationText(p.exerciseName, v)}
                                     />
                                 </View>
                             )}
@@ -351,7 +392,7 @@ export default function RoutineBuilder() {
                                         <View style={styles.catalogDetailRow}>
                                             <MaterialIcons name="block" size={11} color="#C0392B" />
                                             <Text style={[styles.catalogItemDetail, { color: '#C0392B' }]}>
-                                                Contraindicaciones: {ex.contraindications.join(', ')}
+                                                Contraindicaciones: {ex.contraindications.map(c => CONTRAINDICATION_CATEGORY_LABEL[c] ?? c).join(', ')}
                                             </Text>
                                         </View>
                                     )}

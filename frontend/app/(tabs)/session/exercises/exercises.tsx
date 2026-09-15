@@ -1,7 +1,9 @@
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { View, Text, StyleSheet, Pressable, ScrollView, Animated, Vibration } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ScrollView, Animated, Vibration, Modal } from 'react-native';
 import { MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
+import { appAlert } from '@/components/AppAlert';
 import { useSession } from '../../../../context/SessionContext';
 import { useState, useEffect, useRef } from 'react';
 import { executeService } from '../../../../services/executeService';
@@ -9,7 +11,12 @@ import YoutubePlayer from 'react-native-youtube-iframe';
 
 export default function Exercises() {
     const router = useRouter();
-    const { exercises, currentExerciseIndex, moveToNextExercise, addExecutedExercise } = useSession();
+    const { t } = useTranslation();
+    const { exercises, currentExerciseIndex, moveToNextExercise, addExecutedExercise, routineName } = useSession();
+
+    const CATEGORY_TITLE_KEY: Record<string, string> = {
+        aerobic: 'cardio', strength: 'fuerza', flexibility: 'flexibilidad', balance: 'equilibrio', warmup: 'calentamiento', stretching: 'estiramientos'
+    };
 
     const [isResting, setIsResting] = useState(false);
     const [restTimer, setRestTimer] = useState(0);
@@ -18,6 +25,7 @@ export default function Exercises() {
     const [repsThisSerie, setRepsThisSerie] = useState(0);
     const [completedSeries, setCompletedSeries] = useState<number[]>([]);
     const [pendingGoToNext, setPendingGoToNext] = useState(false);
+    const [showIntroModal, setShowIntroModal] = useState(currentExerciseIndex === 0);
 
     const tInitialRef = useRef<Date>(new Date());
     const tapScaleAnim = useRef(new Animated.Value(1)).current;
@@ -65,7 +73,7 @@ export default function Exercises() {
 
     // ── Efecto 1: reset al cambiar de ejercicio ──────────────────────────────
     useEffect(() => {
-        if (!currentExercise) return;
+        if (!currentExercise || showIntroModal) return;
         tInitialRef.current = new Date();
         setCurrentSerie(1);
         setCompletedSeries([]);
@@ -83,7 +91,7 @@ export default function Exercises() {
             setTimeRemaining(0);
             setTimerRunning(false);
         }
-    }, [currentExerciseIndex]);
+    }, [currentExerciseIndex, showIntroModal]);
 
     // ── Efecto 2: cuenta atrás del descanso (separado del anterior) ──────────
     useEffect(() => {
@@ -316,9 +324,16 @@ export default function Exercises() {
 
                 <Text style={styles.mainTitle}>{currentExercise.exerciseName}</Text>
 
-                {/* Dificultad */}
-                <View style={styles.difficultyBadge}>
-                    <Text style={styles.difficultyText}>{currentExercise.difficulty}</Text>
+                {/* Dificultad y Categoría */}
+                <View style={styles.badgesRow}>
+                    <View style={styles.difficultyBadge}>
+                        <Text style={styles.difficultyText}>{currentExercise.difficulty}</Text>
+                    </View>
+                    <View style={styles.categoryBadge}>
+                        <Text style={styles.categoryText}>
+                            {t(`routines.categories.${CATEGORY_TITLE_KEY[currentExercise.category] || currentExercise.category}.title`, { defaultValue: currentExercise.category })}
+                        </Text>
+                    </View>
                 </View>
 
                 {/* Info */}
@@ -471,6 +486,24 @@ export default function Exercises() {
 
                 <View style={{ height: 20 }} />
             </ScrollView>
+            {/* Modal Introductorio */}
+            <Modal visible={showIntroModal} transparent animationType="fade">
+                <View style={styles.introOverlay}>
+                    <View style={styles.introBox}>
+                        <MaterialIcons name="fitness-center" size={64} color="#6B5B95" />
+                        <Text style={styles.introTitle}>¡Prepárate!</Text>
+                        <Text style={styles.introRoutineName}>{routineName}</Text>
+                        <Text style={styles.introSubtitle}>Vamos a comenzar con tu rutina. ¡A darlo todo!</Text>
+                        <Pressable
+                            style={({ pressed }) => [styles.introButton, pressed && { opacity: 0.8 }]}
+                            onPress={() => setShowIntroModal(false)}
+                        >
+                            <Text style={styles.introButtonText}>¡Empezar!</Text>
+                            <MaterialIcons name="play-arrow" size={24} color="#fff" />
+                        </Pressable>
+                    </View>
+                </View>
+            </Modal>
         </SafeAreaView>
     );
 }
@@ -504,13 +537,27 @@ const styles = StyleSheet.create({
         marginHorizontal: 20, marginTop: 8, marginBottom: 4,
         textAlign: 'center',
     },
+    badgesRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 8,
+        marginBottom: 12,
+    },
     difficultyBadge: {
-        alignSelf: 'center',
         backgroundColor: '#F0EDFF',
         borderRadius: 12, paddingHorizontal: 12, paddingVertical: 4,
-        marginBottom: 8,
     },
     difficultyText: {
+        fontSize: 12,
+        color: '#6B5B95',
+        fontWeight: '600'
+    },
+    categoryBadge: {
+        backgroundColor: '#E8D5F5',
+        borderRadius: 12, paddingHorizontal: 12, paddingVertical: 4,
+    },
+    categoryText: {
         fontSize: 12,
         color: '#6B5B95',
         fontWeight: '600'
@@ -716,4 +763,31 @@ const styles = StyleSheet.create({
     },
     chipMeasurement: { backgroundColor: '#E8F5E9' },
     chipText: { fontSize: 12, color: '#6B5B95', fontWeight: '500' },
+    introOverlay: {
+        flex: 1, backgroundColor: 'rgba(0,0,0,0.6)',
+        justifyContent: 'center', alignItems: 'center', padding: 24,
+    },
+    introBox: {
+        backgroundColor: '#fff', borderRadius: 24, padding: 32,
+        width: '100%', maxWidth: 360, alignItems: 'center',
+        elevation: 8,
+        shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3, shadowRadius: 8,
+    },
+    introTitle: {
+        fontSize: 26, fontWeight: '700', color: '#2D3E50', marginTop: 16, marginBottom: 8,
+    },
+    introRoutineName: {
+        fontSize: 20, fontWeight: '600', color: '#6B5B95', marginBottom: 16, textAlign: 'center',
+    },
+    introSubtitle: {
+        fontSize: 15, color: '#666', textAlign: 'center', marginBottom: 24, lineHeight: 22,
+    },
+    introButton: {
+        flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+        backgroundColor: '#6B5B95', borderRadius: 20, paddingVertical: 14, paddingHorizontal: 24, width: '100%',
+    },
+    introButtonText: {
+        fontSize: 18, fontWeight: '600', color: '#fff',
+    },
 });

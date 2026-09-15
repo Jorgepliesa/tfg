@@ -1,9 +1,9 @@
 // Pagina deprecrated , usar la nueva dentro de home
 import { useRouter } from 'expo-router';
 import {
-    View, Text, StyleSheet, Pressable,
-    ScrollView, ActivityIndicator, Alert, Platform
+    View, Text, StyleSheet, Pressable, ScrollView, ActivityIndicator, Platform
 } from 'react-native';
+import { appAlert } from '@/components/AppAlert';
 import { MaterialIcons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState, useCallback } from 'react';
@@ -51,7 +51,7 @@ export default function Inventory() {
             const inv = await shopService.getInventory();
             setInventory(inv);
         } catch (error) {
-            Alert.alert('Error', 'No se pudo cargar el inventario');
+            appAlert('Error', 'No se pudo cargar el inventario');
         } finally {
             setLoading(false);
         }
@@ -62,7 +62,7 @@ export default function Inventory() {
             await shopService.equipItem(itemName);
             await loadInventory();
         } catch {
-            Alert.alert('Error', 'No se pudo equipar el objeto');
+            appAlert('Error', 'No se pudo equipar el objeto');
         }
     };
 

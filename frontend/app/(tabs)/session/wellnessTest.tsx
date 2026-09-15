@@ -1,5 +1,6 @@
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { View, Text, StyleSheet, Pressable, ScrollView, Platform, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ScrollView, Platform, ActivityIndicator } from 'react-native';
+import { appAlert } from '@/components/AppAlert';
 import { MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState } from 'react';
@@ -20,7 +21,7 @@ export default function WellnessTest() {
     const router = useRouter();
     const { type } = useLocalSearchParams();
     const { t } = useTranslation();
-    const { routineName, setInitialTest, setFinalTest, sessionDate, setSessionDuration, setFpGained, isCoop } = useSession();
+    const { routineName, setInitialTest, setFinalTest, sessionDate, setSessionDuration, setFpGained, isCoop, initialTest } = useSession();
     const [selectedRating, setSelectedRating] = useState<number | null>(null);
     const [categoryIndex, setCategoryIndex] = useState(0);
     const [loading, setLoading] = useState(false);
@@ -60,21 +61,23 @@ export default function WellnessTest() {
         try {
             setLoading(true);
 
-            await sessionService.startSession({ routine: routineName || 'Unknown', isCoop });
+            if (!initialTest) {
+                await sessionService.startSession({ routine: routineName || 'Unknown', isCoop });
 
-            const testData = {
-                pain: ratings.pain || 3,
-                sleepiness: ratings.sleepiness || 3,
-                mood: ratings.mood || 3,
-                fatigue: ratings.fatigue || 3,
-            };
-            await wellnessTestService.createTest({ ...testData, type: 'initial' });
-            setInitialTest(testData);
+                const testData = {
+                    pain: ratings.pain || 3,
+                    sleepiness: ratings.sleepiness || 3,
+                    mood: ratings.mood || 3,
+                    fatigue: ratings.fatigue || 3,
+                };
+                await wellnessTestService.createTest({ ...testData, type: 'initial' });
+                setInitialTest(testData);
+            }
 
             router.push('/(tabs)/session/exercises/exercises');
         } catch (error) {
             console.error('Error saving initial test:', error);
-            Alert.alert(t('wellnessTest.error.title'), t('wellnessTest.error.message'));
+            appAlert(t('wellnessTest.error.title'), t('wellnessTest.error.message'));
         } finally {
             setLoading(false);
         }
@@ -109,7 +112,7 @@ export default function WellnessTest() {
             router.replace('/(tabs)/session/summary');
         } catch (error) {
             console.error('Error finishing session:', error);
-            Alert.alert(t('wellnessTest.error.title'), t('wellnessTest.error.message'));
+            appAlert(t('wellnessTest.error.title'), t('wellnessTest.error.message'));
         } finally {
             setLoading(false);
         }
@@ -143,9 +146,9 @@ export default function WellnessTest() {
                 <View style={styles.likertGridContainer}>
                     <View style={styles.likertRow}>
                         {[
-                            { rating: 1, icon: 'emoticon-cry', label: t('wellnessTest.likert.very_bad'), color: '#E74C3C' },
-                            { rating: 2, icon: 'emoticon-sad', label: t('wellnessTest.likert.bad'), color: '#F39C12' },
-                        ].map(({ rating, icon, label, color }) => (
+                            { rating: 1, icon: 'emoticon-cry', color: '#E74C3C' },
+                            { rating: 2, icon: 'emoticon-sad', color: '#F39C12' },
+                        ].map(({ rating, icon, color }) => (
                             <Pressable
                                 key={rating}
                                 style={[
@@ -160,21 +163,15 @@ export default function WellnessTest() {
                                     color={color}
                                     style={{ marginBottom: 4 }}
                                 />
-                                <Text style={[
-                                    styles.likertButtonLabel,
-                                    selectedRating === rating && styles.likertButtonLabelSelected,
-                                ]}>
-                                    {label}
-                                </Text>
                             </Pressable>
                         ))}
                     </View>
 
                     <View style={styles.likertRow}>
                         {[
-                            { rating: 3, icon: 'emoticon-neutral', label: t('wellnessTest.likert.neutral'), color: '#F1C40F' },
-                            { rating: 4, icon: 'emoticon-happy', label: t('wellnessTest.likert.good'), color: '#57EA94' },
-                        ].map(({ rating, icon, label, color }) => (
+                            { rating: 3, icon: 'emoticon-neutral', color: '#F1C40F' },
+                            { rating: 4, icon: 'emoticon-happy', color: '#57EA94' },
+                        ].map(({ rating, icon, color }) => (
                             <Pressable
                                 key={rating}
                                 style={[
@@ -189,20 +186,14 @@ export default function WellnessTest() {
                                     color={color}
                                     style={{ marginBottom: 4 }}
                                 />
-                                <Text style={[
-                                    styles.likertButtonLabel,
-                                    selectedRating === rating && styles.likertButtonLabelSelected,
-                                ]}>
-                                    {label}
-                                </Text>
                             </Pressable>
                         ))}
                     </View>
 
                     <View style={styles.likertRow}>
                         {[
-                            { rating: 5, icon: 'emoticon', label: t('wellnessTest.likert.very_good'), color: '#127E3F' },
-                        ].map(({ rating, icon, label, color }) => (
+                            { rating: 5, icon: 'emoticon', color: '#127E3F' },
+                        ].map(({ rating, icon, color }) => (
                             <Pressable
                                 key={rating}
                                 style={[
@@ -217,12 +208,6 @@ export default function WellnessTest() {
                                     color={color}
                                     style={{ marginBottom: 4 }}
                                 />
-                                <Text style={[
-                                    styles.likertButtonLabel,
-                                    selectedRating === rating && styles.likertButtonLabelSelected,
-                                ]}>
-                                    {label}
-                                </Text>
                             </Pressable>
                         ))}
                     </View>

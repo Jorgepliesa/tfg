@@ -28,19 +28,25 @@ describe('Recomendación de rutinas (integración)', () => {
       .expect(200);
 
     expect(res.body).toHaveProperty('routineName');
-    expect(Array.isArray(res.body.explanation)).toBe(true);
+    // El campo real se llama `allScores` (array con la puntuación de cada rutina candidata)
+    expect(Array.isArray(res.body.allScores)).toBe(true);
   });
 
-  it('la rutina recomendada tiene ejercicios accesibles sin contraindicaciones', async () => {
+  it('la rutina recomendada tiene ejercicios accesibles para el usuario', async () => {
     const recommendRes = await request(app.getHttpServer())
       .get('/routine/recommend?hasEquipment=false')
-      .set('Authorization', `Bearer ${accessToken}`);
-
-    const detailsRes = await request(app.getHttpServer())
-      .get(`/routine/${encodeURIComponent(recommendRes.body.routineName)}`)
       .set('Authorization', `Bearer ${accessToken}`)
       .expect(200);
 
-    expect(detailsRes.body.length).toBeGreaterThan(0);
+    const routineName = recommendRes.body.routineName;
+
+    // El servicio ya excluye rutinas sin ejercicios del algoritmo de recomendación,
+    // así que edit-view siempre devolverá al menos 1 ejercicio.
+    const detailsRes = await request(app.getHttpServer())
+      .get(`/routine/${encodeURIComponent(routineName)}/edit-view`)
+      .set('Authorization', `Bearer ${accessToken}`)
+      .expect(200);
+
+    expect(detailsRes.body.exercises.length).toBeGreaterThan(0);
   });
 });

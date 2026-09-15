@@ -4,7 +4,8 @@ import { MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ActivityIndicator, Alert, Modal, Pressable, View, Text, StyleSheet } from "react-native";
+import { ActivityIndicator, Modal, Pressable, View, Text, StyleSheet } from "react-native";
+import { appAlert } from '@/components/AppAlert';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 type Step = 'idle' | 'equipment' | 'coop' | 'loading';
@@ -33,7 +34,7 @@ export default function Routines() {
             router.push('/(tabs)/session/wellnessTest');
         } catch (error) {
             console.error('Error al recomendar rutina:', error);
-            Alert.alert(t('routines.error_title'), t('routines.error_message'));
+            appAlert(t('routines.error_title'), t('routines.error_message'));
             setStep('idle');
         }
     };

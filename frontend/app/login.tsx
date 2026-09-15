@@ -3,7 +3,8 @@ import { ThemedText } from "@/components/themed-text";
 import { authService } from "@/services/authService";
 import { router } from "expo-router";
 import { useState } from "react";
-import { ActivityIndicator, Alert, Pressable, TextInput, StyleSheet } from "react-native";
+import { ActivityIndicator, Pressable, TextInput, StyleSheet } from "react-native";
+import { appAlert } from "@/components/AppAlert";
 
 export default function LoginScreen() {
     const [userId, setUserId] = useState('');
@@ -11,14 +12,14 @@ export default function LoginScreen() {
     const [loading, setLoading] = useState(false);
 
     const handleLogin = async () => {
-        if(!userId.trim() || !password.trim()) {
-            Alert.alert('Error', 'Please complete all fields');
+        if (!userId.trim() || !password.trim()) {
+            appAlert('Error', 'Por favor completa todos los campos');
             return;
         }
 
         const id = parseInt(userId.trim(), 10);
         if (isNaN(id) || id < 0) {
-            Alert.alert('Error', 'The ID must be a valid number');
+            appAlert('Error', 'El ID debe ser un número válido');
             return;
         }
 
@@ -30,24 +31,22 @@ export default function LoginScreen() {
             router.replace('/welcome');
         } catch (error: any) {
             console.error('❌ Login error:', error);
-            Alert.alert(
-                'Login Failed', 
-                'Invalid ID or password'
-            );
+            appAlert('Error al iniciar sesión', 'ID o contraseña incorrectos');
         } finally {
             setLoading(false);
         }
     };
-    
+
+
     return (
         <ThemedView style={styles.container}>
             <ThemedText type="title" style={styles.title}>
-                Welcome!
+                ¡Bienvenido!
             </ThemedText>
 
             <TextInput
                 style={styles.input}
-                placeholder="ID from user account"
+                placeholder="Introduce tu usuario"
                 placeholderTextColor="#999"
                 value={userId}
                 onChangeText={setUserId}
@@ -58,7 +57,7 @@ export default function LoginScreen() {
 
             <TextInput
                 style={styles.input}
-                placeholder="Password"
+                placeholder="Introduce tu contraseña"
                 placeholderTextColor="#999"
                 value={password}
                 onChangeText={setPassword}
@@ -78,7 +77,7 @@ export default function LoginScreen() {
                 {loading ? (
                     <ActivityIndicator color="#fff" />
                 ) : (
-                    <ThemedText style={styles.buttonText}>Login</ThemedText>
+                    <ThemedText style={styles.buttonText}>Iniciar sesión</ThemedText>
                 )}
             </Pressable>
         </ThemedView>

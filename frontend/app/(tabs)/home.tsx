@@ -4,13 +4,14 @@ import { shopService } from "@/services/shopService";
 import { challengeService, CoopChallengeData } from "@/services/coopChallengeService";
 import MaterialIcons from "@expo/vector-icons/build/MaterialIcons";
 import { router, useFocusEffect, useRouter } from "expo-router";
-import React, { useCallback, useRef, useState } from "react";
+import React, { useCallback, useRef, useState, useLayoutEffect } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   ImageBackground, Text, View, StyleSheet, ActivityIndicator,
-  Platform, Dimensions, Pressable, Alert, ScrollView,
+  Platform, Dimensions, Pressable, ScrollView,
   NativeSyntheticEvent, NativeScrollEvent, Modal, Animated, Easing,
 } from "react-native";
+import { appAlert } from "@/components/AppAlert";
 import { Image } from "expo-image";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ItemCategory, EquippedItem, AvatarDisplay } from "./avatar";
@@ -54,11 +55,13 @@ const PAGES = [
 export default function Home() {
   const router = useRouter();
   const scrollRef = useRef<ScrollView>(null);
+  const hasScrolledToInitial = useRef(false);
 
   // ── Estado Home ──────────────────────────────────────────────────────────────
   const [fp, setFp] = useState<number>(0);
   const [numSteps, setSteps] = useState<number>(0);
   const [loading, setLoading] = useState(true);
+  const [isFirstLoad, setIsFirstLoad] = useState(true);
   const [currentPage, setCurrentPage] = useState<number>(1); // 0=coop, 1=home, 2=inventario
 
   // ── Estado Bonus Diario ──────────────────────────────────────────────────────
@@ -69,6 +72,7 @@ export default function Home() {
   // ── Estado Retos Cooperativos ────────────────────────────────────────────────
   const [coopChallenge, setCoopChallenge] = useState<CoopChallengeData | null>(null);
   const [coopLoading, setCoopLoading] = useState<boolean>(false);
+  const [showCoopInfoModal, setShowCoopInfoModal] = useState(false);
 
   // ── Estado Inventario ────────────────────────────────────────────────────────
   const [activeCategory, setActiveCategory] = useState<Category>('head');
@@ -83,6 +87,18 @@ export default function Home() {
     head: null, body: null, legs: null, feet: null, arms: null, face: null, accessory: null,
   });
   const [confirming, setConfirming] = useState(false);
+
+  const initialScrollDone = useRef(false);
+
+  // ── Scroll inicial síncrono (evita flash) ────────────────────────────────────
+  useLayoutEffect(() => {
+    if (!isFirstLoad && scrollRef.current && !initialScrollDone.current) {
+      scrollRef.current.scrollTo({ x: SCREEN_WIDTH * currentPage, animated: false });
+      initialScrollDone.current = true;
+    }
+    // Solo dependemos de 'isFirstLoad' para restaurar la posición la primera vez
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isFirstLoad]);
 
   // ── Carga de datos ───────────────────────────────────────────────────────────
   useFocusEffect(
@@ -164,6 +180,7 @@ export default function Home() {
       console.error('Error loading home data:', error);
     } finally {
       setLoading(false);
+      setIsFirstLoad(false);
     }
   };
 
@@ -194,7 +211,7 @@ export default function Home() {
       await shopService.equipItem(itemName);
       await loadInventory();
     } catch {
-      Alert.alert('Error', 'No se pudo equipar el objeto');
+      appAlert('Error', 'No se pudo equipar el objeto');
     }
   };
 
@@ -227,20 +244,28 @@ export default function Home() {
       }
       await loadInventory();
     } catch (error) {
-      Alert.alert('Error', 'No se pudieron guardar los cambios de vestuario');
+      appAlert('Error', 'No se pudieron guardar los cambios de vestuario');
       setPreviewEquipped(committedEquipped); // revertir preview si algo falla
     } finally {
       setConfirming(false);
     }
   };
 
+  // Función auxiliar: dado un nombre de item, devuelve la URL completa de su imagen
+  const resolveImageUrl = (itemName: string): string | undefined => {
+    const entry = inventory.find(k => k.item === itemName);
+    return entry?.itemEntity.image
+      ? `${BACKEND_URL}/${entry.itemEntity.image}`
+      : undefined;
+  };
+
   const previewList: EquippedItem[] = (Object.entries(previewEquipped) as [ItemCategory, string | null][])
     .filter(([, item]) => item !== null)
-    .map(([type, item]) => ({ type, item: item! }));
+    .map(([type, item]) => ({ type, item: item!, imageUrl: resolveImageUrl(item!) }));
 
   const committedList: EquippedItem[] = (Object.entries(committedEquipped) as [ItemCategory, string | null][])
     .filter(([, item]) => item !== null)
-    .map(([type, item]) => ({ type, item: item! }));
+    .map(([type, item]) => ({ type, item: item!, imageUrl: resolveImageUrl(item!) }));
 
   // ── Navegación ───────────────────────────────────────────────────────────────
   const goToExercises = async () => {
@@ -250,11 +275,11 @@ export default function Home() {
       if (canStart) {
         router.push('/(tabs)/routines');
       } else {
-        Alert.alert('¡Buen trabajo!', 'Ya has completado tu entrenamiento de hoy. ¡Vuelve mañana!');
+        appAlert('¡Buen trabajo!', 'Ya has completado tu entrenamiento de hoy. ¡Vuelve mañana!');
       }
     } catch (error) {
       console.error('Error checking session start:', error);
-      Alert.alert('Error', 'Hubo un problema al comprobar tu sesión. Inténtalo de nuevo.');
+      appAlert('Error', 'Hubo un problema al comprobar tu sesión. Inténtalo de nuevo.');
     } finally {
       setLoading(false);
     }
@@ -277,6 +302,7 @@ export default function Home() {
 
   // ── Scroll handlers ──────────────────────────────────────────────────────────
   const handleScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    if (!initialScrollDone.current) return;
     const page = Math.round(e.nativeEvent.contentOffset.x / SCREEN_WIDTH);
     setCurrentPage(page);
   };
@@ -284,7 +310,7 @@ export default function Home() {
   const filtered = inventory.filter(k => k.itemEntity?.type === activeCategory);
 
   // ── Spinner inicial ──────────────────────────────────────────────────────────
-  if (loading) {
+  if (loading && isFirstLoad) {
     return (
       <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
         <ActivityIndicator size="large" color="#6B5B95" />
@@ -304,6 +330,12 @@ export default function Home() {
         decelerationRate="fast"
         style={styles.scrollView}
         contentOffset={{ x: SCREEN_WIDTH, y: 0 }}
+        onContentSizeChange={() => {
+          if (!hasScrolledToInitial.current) {
+            hasScrolledToInitial.current = true;
+            scrollRef.current?.scrollTo({ x: SCREEN_WIDTH, animated: false });
+          }
+        }}
       >
         {/* ── PÁGINA 0: Retos Cooperativos ─────────────────────────────────────── */}
         <View style={[styles.page, styles.coopPage]}>
@@ -314,10 +346,7 @@ export default function Home() {
               <Text style={styles.coopHeaderTitle}>Reto Cooperativo</Text>
               <Pressable
                 style={({ pressed }) => [styles.infoButton, pressed && { opacity: 0.6 }]}
-                onPress={() => Alert.alert(
-                  'Retos Cooperativos ',
-                  '¡Trabajad juntos para derrotar al enemigo! Todos los pasos de la comunidad de HealthGame se suman para quitar vida al monstruo.\n\nCamina en tu vida diaria y tus pasos dañarán al jefe en tiempo real. ¡Consigue el objetivo de pasos antes del fin del plazo para ganar!'
-                )}
+                onPress={() => setShowCoopInfoModal(true)}
               >
                 <MaterialIcons name="info-outline" size={26} color="#fff" />
               </Pressable>
@@ -347,9 +376,9 @@ export default function Home() {
                       return (
                         <>
                           <View style={styles.hpBarLabelBox}>
-                            <Text style={styles.hpBarLabel}>HP del Jefe</Text>
+                            <Text style={styles.hpBarLabel}>Vida del Jefe</Text>
                             <Text style={styles.hpBarText}>
-                              {isDefeated ? '0' : hpRemaining.toLocaleString()} / {total.toLocaleString()} HP ({hpPercent.toFixed(1)}%)
+                              {isDefeated ? '0' : hpRemaining.toLocaleString()} / {total.toLocaleString()} PV ({hpPercent.toFixed(1)}%)
                             </Text>
                           </View>
                           <View style={styles.hpBarTrack}>
@@ -421,6 +450,7 @@ export default function Home() {
                   <View style={styles.timeRow}>
                     <MaterialIcons name="event" size={16} color="#ccc" />
                     <Text style={styles.timeText}>
+                      Inicio: {coopChallenge ? new Date(coopChallenge.startDate).toLocaleDateString() : '---'} |
                       Fin: {coopChallenge ? new Date(coopChallenge.endDate).toLocaleDateString() : '---'}
                     </Text>
                   </View>
@@ -454,7 +484,11 @@ export default function Home() {
             </View>
             {/* Avatar */}
             <View style={styles.avatarContainer}>
-              <AvatarDisplay equipped={committedList} size={320} />
+              <AvatarDisplay
+                equipped={committedList}
+                avatarUrl={`${BACKEND_URL}/uploads/images/Avatar.png`}
+                size={320}
+              />
             </View>
             {/* Barra de botones inferior */}
             <View style={styles.bottomBar}>
@@ -525,7 +559,12 @@ export default function Home() {
 
             {/* Preview del avatar en vivo */}
             <View style={styles.previewStage}>
-              <AvatarDisplay equipped={previewList} size={180} isPreview={hasPendingChanges} />
+              <AvatarDisplay
+                equipped={previewList}
+                avatarUrl={`${BACKEND_URL}/uploads/images/Avatar.png`}
+                size={180}
+                isPreview={hasPendingChanges}
+              />
               {hasPendingChanges && (
                 <Text style={styles.previewHint}>Previsualizando cambios</Text>
               )}
@@ -724,9 +763,44 @@ export default function Home() {
               style={({ pressed }) => [styles.bonusButton, pressed && { opacity: 0.85 }]}
               onPress={() => setShowDailyBonus(false)}
             >
-              <Text style={styles.bonusButtonText}>¡Genial!</Text>
+              <Text style={styles.bonusButtonText}>¡Lo quiero!</Text>
             </Pressable>
           </Animated.View>
+        </Pressable>
+      </Modal>
+
+      {/* ── Modal Info Retos Cooperativos ───────────────────────────────────── */}
+      <Modal
+        transparent
+        animationType="fade"
+        visible={showCoopInfoModal}
+        onRequestClose={() => setShowCoopInfoModal(false)}
+      >
+        <Pressable
+          style={styles.bonusOverlay}
+          onPress={() => setShowCoopInfoModal(false)}
+        >
+          <Pressable style={styles.coopInfoCard} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.coopInfoIconRing}>
+              <MaterialIcons name="info-outline" size={36} color="#6B5B95" />
+            </View>
+
+            <Text style={styles.bonusTitle}>Retos Cooperativos</Text>
+
+            <Text style={styles.coopInfoText}>
+              ¡Trabajad juntos para derrotar al enemigo! Todos los pasos de la comunidad de HealthGame se suman para quitar vida al monstruo.
+            </Text>
+            <Text style={styles.coopInfoText}>
+              Camina en tu vida diaria y tus pasos dañarán al jefe en tiempo real. ¡Consigue el objetivo de pasos antes del fin del plazo para ganar!
+            </Text>
+
+            <Pressable
+              style={({ pressed }) => [styles.bonusButton, pressed && { opacity: 0.85 }]}
+              onPress={() => setShowCoopInfoModal(false)}
+            >
+              <Text style={styles.bonusButtonText}>¡Entendido!</Text>
+            </Pressable>
+          </Pressable>
         </Pressable>
       </Modal>
     </View>
@@ -888,7 +962,7 @@ const styles = StyleSheet.create({
   },
   swipeHintText: {
     fontSize: 10,
-    color: 'rgba(255,255,255,0.7)',
+    color: 'rgba(255,255,255,0.9)',
     fontWeight: '600',
   },
 
@@ -1428,5 +1502,39 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     resizeMode: 'contain',
+  },
+  coopInfoCard: {
+    width: 320,
+    maxWidth: '90%',
+    backgroundColor: '#fff',
+    borderRadius: 32,
+    paddingHorizontal: 24,
+    paddingVertical: 28,
+    alignItems: 'center',
+    gap: 14,
+    shadowColor: '#6B5B95',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.35,
+    shadowRadius: 20,
+    elevation: 20,
+    ...Platform.select({ web: { boxShadow: '0px 8px 20px rgba(107,91,149,0.35)' } }),
+  },
+  coopInfoIconRing: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    backgroundColor: '#F5F0FF',
+    borderWidth: 2,
+    borderColor: '#6B5B95',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  coopInfoText: {
+    fontSize: 14,
+    color: '#475569',
+    textAlign: 'center',
+    lineHeight: 20,
+    fontWeight: '500',
   },
 });
