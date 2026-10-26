@@ -891,10 +891,12 @@ export default function ParentalDashboard() {
             setMoodTrend(mood);
             setPrePost(comparison);
 
-            if (summaries.length > 0 && summaries[0].avgHeartRate) {
+            if (summaries.length > 0) {
                 try {
                     const start = new Date(summaries[0].date);
-                    const end = new Date(start.getTime() + summaries[0].durationMinutes * 60000);
+                    // Si durationMinutes es 0, usar 30 min como fallback para capturar mediciones
+                    const effectiveDuration = summaries[0].durationMinutes > 0 ? summaries[0].durationMinutes : 30;
+                    const end = new Date(start.getTime() + effectiveDuration * 60000);
                     const raw = await api.get('/sensors/session', {
                         params: { start: start.toISOString(), end: end.toISOString() },
                     });

@@ -28,7 +28,7 @@ const OVERLAY_POSITIONS: Record<ItemCategory, {
 }> = {
     head: { top: '-5%', left: '31%', width: '40%', height: '12%' },
     face: { top: '12%', left: '25%', width: '50%', height: '18%' },
-    body: { top: '33%', left: '15%', width: '70%', height: '30%' },
+    body: { top: '8%', left: '11.5%', width: '80%', height: '45%' },
     arms: { top: '38%', left: '2%', width: '20%', height: '30%' },
     legs: { top: '60%', left: '20%', width: '60%', height: '28%' },
     feet: { top: '83%', left: '20%', width: '60%', height: '17%' },

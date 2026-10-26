@@ -1,4 +1,4 @@
-# 🏋️‍♂️ GamificaTFG - Plataforma Gamificada de Promoción del Ejercicio Físico y Salud
+# 🏋️‍♂️ HealthGame - Plataforma Gamificada de Promoción del Ejercicio Físico y Salud
 
 [![React Native](https://img.shields.io/badge/React_Native-19.1-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://reactnative.dev/)
 [![Expo](https://img.shields.io/badge/Expo-54-000000?style=for-the-badge&logo=expo&logoColor=white)](https://expo.dev/)
@@ -26,7 +26,7 @@
 
 ## 🎯 Acerca del Proyecto
 
-**GamificaTFG** es una solución tecnológica integral orientada a incentivar el hábito de realizar actividad física regular. Combina mecánicas de videojuegos (puntos de experiencia/FP, avatares personalizables, tienda virtual, cromos educativos y retos comunitarios) con un riguroso seguimiento del estado de salud y bienestar de los usuarios a través de cuestionarios pre y post entrenamiento. Además, incluye un panel parental de administración para tutores y supervisores.
+**HealthGame** es una solución tecnológica integral orientada a incentivar el hábito de realizar actividad física regular. Combina mecánicas de videojuegos (puntos de experiencia/FP, avatares personalizables, tienda virtual, cromos educativos y retos comunitarios) con un riguroso seguimiento del estado de salud y bienestar de los usuarios a través de cuestionarios pre y post entrenamiento. Además, incluye un panel parental de administración para tutores y supervisores.
 
 ---
 
@@ -180,4 +180,6 @@ tfg/
 
 ## 📜 Créditos y Licencia
 
-Este proyecto ha sido desarrollado como **Trabajo de Fin de Grado (TFG)** universitario. Todos los derechos reservados.
+Este proyecto ha sido desarrollado como **Trabajo de Fin de Grado (TFG)** universitario.
+
+Distribuido bajo la licencia **GNU General Public License v3.0**. Consulta el archivo [LICENSE](./LICENSE) para más detalles.

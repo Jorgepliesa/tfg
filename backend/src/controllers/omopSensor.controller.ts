@@ -69,7 +69,9 @@ export class OmopSensorController {
         return Promise.all(
             sessions.map(async (s) => {
                 const start = new Date(s.date);
-                const end = new Date(start.getTime() + s.duration * 60000);
+                // Si duration es 0 o falsy, usar 30 min como fallback para capturar mediciones
+                const effectiveDuration = s.duration > 0 ? s.duration : 30;
+                const end = new Date(start.getTime() + effectiveDuration * 60000);
                 const sensorSummary = await this.omopSensorService.getSessionSummary(omopPersonId, start, end);
                 return { date: s.date, routine: s.routine, durationMinutes: s.duration, ...sensorSummary };
             }),

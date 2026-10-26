@@ -577,10 +577,21 @@ export class RoutineService {
     const routines = await this.routineRepository.find({
       relations: ['plans', 'plans.exerciseEntity', 'plans.exerciseEntity.equipment', 'plans.exerciseEntity.contraindications'],
     });
+    const visibleRoutines = routines.filter((r) => {
+      // 1. Debe ser genérica o asignada al usuario
+      if (r.assignedUserId !== null && r.assignedUserId !== userId) {
+        return false;
+      }
+      
+      // 2. No debe contener ejercicios contraindicados para el usuario
+      const hasContraindicatedExercise = (r.plans || []).some((p) =>
+        (p.exerciseEntity?.contraindications || []).some((c) =>
+          contraindications.has(c.name)
+        )
+      );
 
-    const visibleRoutines = routines.filter(
-      (r) => r.assignedUserId === null || r.assignedUserId === userId,
-    );
+      return !hasContraindicatedExercise;
+    });
 
     if (visibleRoutines.length === 0) {
       throw new NotFoundException('No routines available for this user');
